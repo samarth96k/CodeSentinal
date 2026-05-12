@@ -28,7 +28,7 @@ export const octokit = new Octokit({
 
 //gives open pr
 // const prs = await getPullRequests(); 
-// console.log("*********************for testing purpose****************************getprs")
+console.log("*********************for testing purpose****************************getprs")
 // console.log(prs)
 //select which pull to be used from the above array
 // const pullNumber = prs[2].number;
@@ -42,12 +42,12 @@ const commit_id = await getSHA(pullNumber);
 // console.log(commit_id);
 //taking a single one
 const allChunks: any[] = [];
-// console.log("**************************************************file")
+console.log("**************************************************file")
 // const file = files[0];
 // console.log(file);
 //using  diff  parser  library
 // const parsed = parsePatchLibrary(file.patch);
-// console.log("**************************************************parsed");
+console.log("**************************************************parsed");
 // console.log(parsed);
 // const processedParsed = preprocessParsedFiles(parsed, file.filename);
 // if (processedParsed.length === 0) {
@@ -79,7 +79,7 @@ if (allChunks.length === 0) {
     process.exit(0);
 }
 
-// console.log("***************************************************chunks");
+console.log("***************************************************chunks");
 // const reviewChunks = reviewChunksWithLLM();
 // console.log(JSON.stringify(chunks, null, 2));
 const result = await reviewChunksWithLLM(allChunks);
@@ -87,11 +87,11 @@ if (result.reviews.length === 0) {
     console.log("No issues found by AI.");
     process.exit(0);
 }
-// console.log("*************************************************ai review json")
-// console.log(result);
+console.log("*************************************************ai review json")
+console.log(result);
 
 
-// console.log("**************************************************comment");
+console.log("**************************************************comment");
 const postResult = await postComments(
     result,
     commit_id,
