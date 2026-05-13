@@ -25,6 +25,7 @@ Rules:
 10. githubComment.line must equal review.line.
 11. githubComment.side must always be "RIGHT".
 12. githubComment.body must be ready to post directly on GitHub.
+13. In github comment object only add comments with severe or critical level. If there are no severe or critical comments, then only give two or three normal coments depending on requirements.
 
 Return JSON only in this format:
 {
