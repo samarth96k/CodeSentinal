@@ -23,7 +23,7 @@ export type ReviewChunk = {
 
 export function chunkingParsed(parsed: any, filename: string): ReviewChunk[] {
     const reviewChunks: ReviewChunk[] = [];
-    const contextSize = 3;
+    const contextSize = 10;
 
     parsed.forEach((file: any) => {
         file.hunks.forEach((hunk: any) => {
@@ -35,7 +35,7 @@ export function chunkingParsed(parsed: any, filename: string): ReviewChunk[] {
                     continue;
                 }
 
-                const addedStartIndex = i;
+                const addedIndexSrartasdhjm = i+1;
                 let addedEndIndex = i;
                 while (
                     addedEndIndex + 1 < changes.length &&
@@ -44,7 +44,7 @@ export function chunkingParsed(parsed: any, filename: string): ReviewChunk[] {
                     addedEndIndex++;
                 }
 
-                const startIndex = Math.max(0, addedStartIndex - contextSize);
+                const startIndex = Math.max(0, addedIndexSrartasdhjm - contextSize);
                 const endIndex = Math.min(
                     changes.length - 1,
                     addedEndIndex + contextSize

@@ -52,6 +52,8 @@ function shouldIgnoreFile(filename: string): boolean {
         ".snap",
         ".min.js",
         ".min.css",
+        ".svg",
+        ".wav"
     ];
 
     const fileNameOnly = normalizedFilename.split("/").pop() ?? normalizedFilename;
