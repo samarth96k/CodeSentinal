@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "generate-wiki": "node dist/wiki/generateWiki.js",
+    "update-wiki": "node dist/wiki/updateWiki.js"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",
