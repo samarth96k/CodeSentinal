@@ -10,15 +10,19 @@ export const CORE_WIKI_FILES = {
 } as const;
 
 export const IGNORED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  ".next",
-  "coverage",
-  ".turbo",
-  ".vercel",
-  ".codesentinal",
+  ".py",
+  ".java",
+  ".cpp",
+  ".c",
+  ".h",
+  ".hpp",
+  ".go",
+  ".rs",
+  ".php",
+  ".rb",
+  ".cs",
+  ".kt",
+  ".swift",
 ]);
 
 export const SUPPORTED_EXTENSIONS = new Set([
