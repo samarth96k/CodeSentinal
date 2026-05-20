@@ -1,0 +1,41 @@
+name: CodeSentinal Wiki Update
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-wiki:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Update LLM Wiki
+        run: node dist/wiki/updateWiki.js
+
+      - name: Commit updated wiki files
+        run: |
+          git config user.name "codesentinal-bot"
+          git config user.email "codesentinal-bot@users.noreply.github.com"
+          git add .codesentinal/wiki
+          git diff --cached --quiet || git commit -m "docs: update CodeSentinal LLM wiki"
+          git push
