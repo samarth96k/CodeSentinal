@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import * as github from "@actions/github";
+import * as core from "@actions/core";
 import { ensureWikiAvailable } from "./wiki/ensureWikiAvailable.js";
 import {
   getPullRequestFiles,
@@ -21,7 +22,52 @@ dotenv.config();
 
 type RunMode = "review" | "wiki-update" | "all";
 
-const mode = (process.argv[2] || "review") as RunMode;
+function configureRuntimeFromActionInputs(): void {
+  const geminiInput = core.getInput("gemini_api_key");
+
+  if (geminiInput && !process.env.GEMINI_API_KEY) {
+    process.env.GEMINI_API_KEY = geminiInput;
+  }
+
+  const maxWikiFilesInput = core.getInput("max_wiki_files");
+
+  if (maxWikiFilesInput && !process.env.CODE_SENTINAL_MAX_WIKI_FILES) {
+    process.env.CODE_SENTINAL_MAX_WIKI_FILES = maxWikiFilesInput;
+  }
+
+  const repoRootInput = core.getInput("repo_root") || ".";
+
+  if (repoRootInput) {
+    process.chdir(repoRootInput);
+  }
+
+  console.log("[CodeSentinal] Working directory:", process.cwd());
+}
+
+// const mode = (process.argv[2] || "review") as RunMode;
+function getRunMode(): RunMode {
+  const cliMode = process.argv[2];
+
+  if (cliMode === "review" || cliMode === "wiki-update" || cliMode === "all") {
+    return cliMode;
+  }
+
+  const actionMode = core.getInput("mode") || "review";
+
+  if (
+    actionMode === "review" ||
+    actionMode === "wiki-update" ||
+    actionMode === "all"
+  ) {
+    return actionMode;
+  }
+
+  throw new Error(`Invalid mode: ${actionMode}`);
+}
+
+configureRuntimeFromActionInputs();
+
+const mode = getRunMode();
 
 const context = github.context;
 const pullRequest = context.payload.pull_request;
