@@ -1,0 +1,44 @@
+name: CodeSentinal Wiki Init
+
+on:
+  create:
+
+permissions:
+  contents: write
+
+jobs:
+  init-wiki:
+    if: github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout created branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.ref }}
+          persist-credentials: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Initialize LLM Wiki
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CODE_SENTINAL_MAX_WIKI_FILES: 40
+        run: node dist/wiki/initWiki.js
+
+      - name: Commit wiki files
+        run: |
+          git config user.name "codesentinal-bot"
+          git config user.email "codesentinal-bot@users.noreply.github.com"
+          git add .codesentinal/wiki
+          git diff --cached --quiet || git commit -m "docs: initialize CodeSentinal LLM wiki"
+          git push origin HEAD:${{ github.event.ref }}

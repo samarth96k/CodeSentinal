@@ -1,22 +1,24 @@
-name: CodeSentinal AI Code Review
+name: CodeSentinal Wiki PR Update
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
-  ai-code-review:
+  wiki-pr-update:
+    if: github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout original repository code
+      - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.head_ref }}
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,8 +31,8 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-      - name: Run AI Code Review
+      - name: Update LLM Wiki Markdown Files
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node dist/index.js review
+        run: node dist/index.js wiki-update
