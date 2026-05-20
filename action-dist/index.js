@@ -78868,6 +78868,25 @@ const CORE_WIKI_FILES = {
     reviewRules: "review-rules.md",
 };
 const IGNORED_DIRS = new Set([
+    ".git",
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    "coverage",
+    ".turbo",
+    ".vercel",
+    ".codesentinal",
+]);
+const SUPPORTED_EXTENSIONS = new Set([
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".json",
+    ".md",
+    ".yml",
+    ".yaml",
     ".py",
     ".java",
     ".cpp",
@@ -78881,16 +78900,6 @@ const IGNORED_DIRS = new Set([
     ".cs",
     ".kt",
     ".swift",
-]);
-const SUPPORTED_EXTENSIONS = new Set([
-    ".ts",
-    ".tsx",
-    ".js",
-    ".jsx",
-    ".json",
-    ".md",
-    ".yml",
-    ".yaml",
 ]);
 const MAX_FILE_SIZE_BYTES = 120_000;
 const MAX_SOURCE_PREVIEW_CHARS = 6000;

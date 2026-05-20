@@ -10,6 +10,27 @@ export const CORE_WIKI_FILES = {
 } as const;
 
 export const IGNORED_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  ".next",
+  "coverage",
+  ".turbo",
+  ".vercel",
+  ".codesentinal",
+]);
+
+export const SUPPORTED_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".json",
+  ".md",
+  ".yml",
+  ".yaml",
+
   ".py",
   ".java",
   ".cpp",
@@ -23,17 +44,6 @@ export const IGNORED_DIRS = new Set([
   ".cs",
   ".kt",
   ".swift",
-]);
-
-export const SUPPORTED_EXTENSIONS = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".json",
-  ".md",
-  ".yml",
-  ".yaml",
 ]);
 
 export const MAX_FILE_SIZE_BYTES = 120_000;
