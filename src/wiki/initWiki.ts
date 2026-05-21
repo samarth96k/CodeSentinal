@@ -127,10 +127,3 @@ export async function initWiki(repoRoot = process.cwd()): Promise<WikiWriteResul
     skippedFiles,
   };
 }
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  initWiki().catch((error) => {
-    console.error("[CodeSentinal Wiki] Initialization failed:", error);
-    process.exit(1);
-  });
-}

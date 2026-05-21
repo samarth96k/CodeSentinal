@@ -78548,7 +78548,7 @@ function getGeminiClient() {
 }
 async function generateTextWithGemini(prompt) {
     const response = await getGeminiClient().models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         contents: prompt,
     });
     return response.text?.trim() || "";
@@ -78633,7 +78633,7 @@ async function reviewChunksWithLLM(reviewChunks) {
     }
     const prompt = buildReviewPrompt(reviewChunks);
     const response = await getGeminiClient().models.generateContent({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3.1-flash-lite",
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -79384,12 +79384,6 @@ async function initWiki(repoRoot = external_process_.cwd()) {
         writtenFiles,
         skippedFiles,
     };
-}
-if (import.meta.url === `file://${external_process_.argv[1]}`) {
-    initWiki().catch((error) => {
-        console.error("[CodeSentinal Wiki] Initialization failed:", error);
-        external_process_.exit(1);
-    });
 }
 
 ;// CONCATENATED MODULE: ./dist/wiki/ensureWikiAvailable.js

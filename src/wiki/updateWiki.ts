@@ -13,10 +13,3 @@ export async function updateWiki(
 
   return result;
 }
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  updateWiki().catch((error) => {
-    console.error("[CodeSentinal Wiki] Update failed:", error);
-    process.exit(1);
-  });
-}
