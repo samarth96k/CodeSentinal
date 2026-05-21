@@ -8,12 +8,28 @@ dotenv.config();
 export const owner = github.context.repo.owner;
 export const repo = github.context.repo.repo;
 
-export const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN || process.env.TOKEN_GITHUB,
-});
+let octokitClient: Octokit | null = null;
+
+function getOctokitClient(): Octokit {
+  if (octokitClient) return octokitClient;
+
+  const token = process.env.GITHUB_TOKEN || process.env.TOKEN_GITHUB;
+
+  if (!token) {
+    throw new Error(
+      "GITHUB_TOKEN is missing. Pass github_token input or set GITHUB_TOKEN env."
+    );
+  }
+
+  octokitClient = new Octokit({
+    auth: token,
+  });
+
+  return octokitClient;
+}
 
 export async function getPullRequests() {
-  const prs = await octokit.request("GET /repos/{owner}/{repo}/pulls", {
+  const prs = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls", {
     owner,
     repo,
     per_page: 5,
@@ -26,7 +42,7 @@ export async function getPullRequests() {
 }
 
 export async function getPullRequestFiles(pullNumber: number) {
-  const response = await octokit.request(
+  const response = await getOctokitClient().request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
     {
       owner,
@@ -49,7 +65,7 @@ export async function getPullRequestFiles(pullNumber: number) {
 }
 
 export async function getSHA(pullNumber: number) {
-  const response = await octokit.request(
+  const response = await getOctokitClient().request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}",
     {
       owner,
@@ -77,7 +93,7 @@ export async function postComments(
       console.log("POSTING COMMENT:");
       console.log(review.githubComment);
 
-      const res = await octokit.request(
+      const res = await getOctokitClient().request(
         "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
         {
           owner,
@@ -121,7 +137,7 @@ export async function postComments(
 }
 
 async function getPullRequestDetails(pullNumber: number) {
-  const response = await octokit.request(
+  const response = await getOctokitClient().request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}",
     {
       owner,
@@ -151,7 +167,7 @@ async function getExistingFileSha(params: {
   ref: string;
 }): Promise<string | undefined> {
   try {
-    const response = await octokit.request(
+    const response = await getOctokitClient().request(
       "GET /repos/{owner}/{repo}/contents/{path}",
       {
         owner: params.owner,
@@ -222,7 +238,7 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
         ref: branch,
       });
 
-      const response = await octokit.request(
+      const response = await getOctokitClient().request(
         "PUT /repos/{owner}/{repo}/contents/{path}",
         {
           owner,

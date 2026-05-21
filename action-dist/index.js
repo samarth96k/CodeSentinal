@@ -51600,7 +51600,7 @@ __nccwpck_require__.d(__webpack_exports__, {
   Z8: () => (/* binding */ postComments)
 });
 
-// UNUSED EXPORTS: getPullRequests, octokit, owner, repo
+// UNUSED EXPORTS: getPullRequests, owner, repo
 
 // EXTERNAL MODULE: ./node_modules/dotenv/lib/main.js
 var main = __nccwpck_require__(8889);
@@ -56633,11 +56633,21 @@ var github = __nccwpck_require__(722);
 main.config();
 const owner = github/* context */._.repo.owner;
 const repo = github/* context */._.repo.repo;
-const octokit = new Octokit({
-    auth: process.env.GITHUB_TOKEN || process.env.TOKEN_GITHUB,
-});
+let octokitClient = null;
+function getOctokitClient() {
+    if (octokitClient)
+        return octokitClient;
+    const token = process.env.GITHUB_TOKEN || process.env.TOKEN_GITHUB;
+    if (!token) {
+        throw new Error("GITHUB_TOKEN is missing. Pass github_token input or set GITHUB_TOKEN env.");
+    }
+    octokitClient = new Octokit({
+        auth: token,
+    });
+    return octokitClient;
+}
 async function getPullRequests() {
-    const prs = await octokit.request("GET /repos/{owner}/{repo}/pulls", {
+    const prs = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls", {
         owner,
         repo,
         per_page: 5,
@@ -56648,7 +56658,7 @@ async function getPullRequests() {
     return prs.data;
 }
 async function getPullRequestFiles(pullNumber) {
-    const response = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", {
+    const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", {
         owner,
         repo,
         pull_number: pullNumber,
@@ -56666,7 +56676,7 @@ async function getPullRequestFiles(pullNumber) {
     }));
 }
 async function getSHA(pullNumber) {
-    const response = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
+    const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
         owner,
         repo,
         pull_number: pullNumber,
@@ -56683,7 +56693,7 @@ async function postComments(result, commit_id, pullNumber) {
             console.log("\n====================================");
             console.log("POSTING COMMENT:");
             console.log(review.githubComment);
-            const res = await octokit.request("POST /repos/{owner}/{repo}/pulls/{pull_number}/comments", {
+            const res = await getOctokitClient().request("POST /repos/{owner}/{repo}/pulls/{pull_number}/comments", {
                 owner,
                 repo,
                 pull_number: pullNumber,
@@ -56720,7 +56730,7 @@ async function postComments(result, commit_id, pullNumber) {
     return responses;
 }
 async function getPullRequestDetails(pullNumber) {
-    const response = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
+    const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
         owner,
         repo,
         pull_number: pullNumber,
@@ -56737,7 +56747,7 @@ function assertSafeWikiMarkdownChange(file) {
 }
 async function getExistingFileSha(params) {
     try {
-        const response = await octokit.request("GET /repos/{owner}/{repo}/contents/{path}", {
+        const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/contents/{path}", {
             owner: params.owner,
             repo: params.repo,
             path: params.path,
@@ -56785,7 +56795,7 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
                 path: change.path,
                 ref: branch,
             });
-            const response = await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", {
+            const response = await getOctokitClient().request("PUT /repos/{owner}/{repo}/contents/{path}", {
                 owner,
                 repo,
                 path: change.path,
@@ -56858,6 +56868,10 @@ function configureRuntimeFromActionInputs() {
     const geminiInput = _actions_core__WEBPACK_IMPORTED_MODULE_2__/* .getInput */ .V4("gemini_api_key");
     if (geminiInput && !process.env.GEMINI_API_KEY) {
         process.env.GEMINI_API_KEY = geminiInput;
+    }
+    const githubTokenInput = _actions_core__WEBPACK_IMPORTED_MODULE_2__/* .getInput */ .V4("github_token");
+    if (githubTokenInput && !process.env.GITHUB_TOKEN) {
+        process.env.GITHUB_TOKEN = githubTokenInput;
     }
     const maxWikiFilesInput = _actions_core__WEBPACK_IMPORTED_MODULE_2__/* .getInput */ .V4("max_wiki_files");
     if (maxWikiFilesInput && !process.env.CODE_SENTINAL_MAX_WIKI_FILES) {

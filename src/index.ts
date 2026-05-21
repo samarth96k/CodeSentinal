@@ -29,6 +29,12 @@ function configureRuntimeFromActionInputs(): void {
     process.env.GEMINI_API_KEY = geminiInput;
   }
 
+  const githubTokenInput = core.getInput("github_token");
+
+  if (githubTokenInput && !process.env.GITHUB_TOKEN) {
+    process.env.GITHUB_TOKEN = githubTokenInput;
+  }
+
   const maxWikiFilesInput = core.getInput("max_wiki_files");
 
   if (maxWikiFilesInput && !process.env.CODE_SENTINAL_MAX_WIKI_FILES) {
