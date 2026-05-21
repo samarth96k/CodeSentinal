@@ -56905,6 +56905,20 @@ if (!pullRequest) {
     throw new Error("No pull request found.");
 }
 const pullNumber = pullRequest.number;
+function isForkPullRequest(pr) {
+    if (!pr)
+        return false;
+    return pr.head.repo.full_name !== pr.base.repo.full_name;
+}
+function shouldUseWikiContext(pr) {
+    // Fork PRs under pull_request_target should be diff-only for safety.
+    // We should not generate/read repo wiki without a trusted checkout.
+    if (isForkPullRequest(pr)) {
+        console.log("[CodeSentinal] Fork PR detected. Skipping LLM Wiki context for safe review.");
+        return false;
+    }
+    return true;
+}
 async function buildReviewChunks() {
     const files = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getPullRequestFiles */ .a6)(pullNumber);
     const allChunks = [];
@@ -56927,8 +56941,14 @@ async function buildReviewChunks() {
 async function runReviewMode(chunks) {
     console.log("[CodeSentinal] Running review mode...");
     const commitId = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getSHA */ .TK)(pullNumber);
-    await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
-    const chunksWithWikiContext = await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_7__/* .getWikiContextForChunks */ .T)(chunks);
+    // await ensureWikiAvailable();
+    // const chunksWithWikiContext = await getWikiContextForChunks(chunks);
+    const chunksWithWikiContext = shouldUseWikiContext(pullRequest)
+        ? await (async () => {
+            await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
+            return (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_7__/* .getWikiContextForChunks */ .T)(chunks);
+        })()
+        : chunks;
     const result = await (0,_llm_js__WEBPACK_IMPORTED_MODULE_6__/* .reviewChunksWithLLM */ .W)(chunksWithWikiContext);
     if (result.reviews.length === 0) {
         console.log("No issues found by AI.");
@@ -56939,6 +56959,10 @@ async function runReviewMode(chunks) {
 }
 async function runWikiUpdateMode(chunks) {
     console.log("[CodeSentinal Wiki] Running wiki-update mode...");
+    if (isForkPullRequest(pullRequest)) {
+        console.log("[CodeSentinal Wiki] Fork PR detected. Skipping wiki update for safety.");
+        return;
+    }
     await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
     const chunksWithWikiContext = await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_7__/* .getWikiContextForChunks */ .T)(chunks);
     const wikiUpdatePlan = await (0,_wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_8__/* .planWikiMarkdownUpdates */ .v)(chunksWithWikiContext);
@@ -56972,8 +56996,16 @@ else if (mode === "wiki-update") {
     await runWikiUpdateMode(chunks);
 }
 else if (mode === "all") {
-    await runReviewMode(chunks);
-    await runWikiUpdateMode(chunks);
+    const results = await Promise.allSettled([
+        runReviewMode(chunks),
+        runWikiUpdateMode(chunks),
+    ]);
+    for (const result of results) {
+        if (result.status === "rejected") {
+            console.error("[CodeSentinal] One pipeline failed:");
+            console.error(result.reason);
+        }
+    }
 }
 else {
     throw new Error(`Invalid mode: ${mode}`);

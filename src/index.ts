@@ -84,6 +84,26 @@ if (!pullRequest) {
 
 const pullNumber = pullRequest.number;
 
+function isForkPullRequest(pr: typeof pullRequest): boolean {
+  if (!pr) return false;
+
+  return pr.head.repo.full_name !== pr.base.repo.full_name;
+}
+
+function shouldUseWikiContext(pr: typeof pullRequest): boolean {
+  // Fork PRs under pull_request_target should be diff-only for safety.
+  // We should not generate/read repo wiki without a trusted checkout.
+  if (isForkPullRequest(pr)) {
+    console.log(
+      "[CodeSentinal] Fork PR detected. Skipping LLM Wiki context for safe review."
+    );
+
+    return false;
+  }
+
+  return true;
+}
+
 async function buildReviewChunks(): Promise<ReviewChunk[]> {
   const files = await getPullRequestFiles(pullNumber);
   const allChunks: ReviewChunk[] = [];
@@ -114,8 +134,15 @@ async function runReviewMode(chunks: ReviewChunk[]) {
 
   const commitId = await getSHA(pullNumber);
 
-  await ensureWikiAvailable();
-  const chunksWithWikiContext = await getWikiContextForChunks(chunks);
+  // await ensureWikiAvailable();
+  // const chunksWithWikiContext = await getWikiContextForChunks(chunks);
+
+  const chunksWithWikiContext = shouldUseWikiContext(pullRequest)
+    ? await (async () => {
+        await ensureWikiAvailable();
+        return getWikiContextForChunks(chunks);
+      })()
+    : chunks;
 
   const result = await reviewChunksWithLLM(chunksWithWikiContext);
 
@@ -131,6 +158,11 @@ async function runReviewMode(chunks: ReviewChunk[]) {
 
 async function runWikiUpdateMode(chunks: ReviewChunk[]) {
   console.log("[CodeSentinal Wiki] Running wiki-update mode...");
+
+  if (isForkPullRequest(pullRequest)) {
+    console.log("[CodeSentinal Wiki] Fork PR detected. Skipping wiki update for safety.");
+    return;
+  }
 
   await ensureWikiAvailable();
   const chunksWithWikiContext = await getWikiContextForChunks(chunks);
@@ -173,8 +205,17 @@ if (mode === "review") {
 } else if (mode === "wiki-update") {
   await runWikiUpdateMode(chunks);
 } else if (mode === "all") {
-  await runReviewMode(chunks);
-  await runWikiUpdateMode(chunks);
+    const results = await Promise.allSettled([
+      runReviewMode(chunks),
+      runWikiUpdateMode(chunks),
+    ]);
+
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("[CodeSentinal] One pipeline failed:");
+        console.error(result.reason);
+      }
+    }
 } else {
   throw new Error(`Invalid mode: ${mode}`);
 }

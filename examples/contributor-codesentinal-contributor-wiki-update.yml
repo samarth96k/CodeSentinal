@@ -1,0 +1,25 @@
+name: CodeSentinal Contributor Manual Wiki Update Before PR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  contributor-wiki-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout contributor branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Run CodeSentinal Wiki Update
+        uses: samarth96k/CodeSentinal@v1
+        with:
+          mode: wiki-update
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          github_token: ${{ github.token }}
+          repo_root: "."
