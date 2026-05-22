@@ -17,7 +17,7 @@ import {
 import type { WikiWriteResult } from "./wikiTypes.js";
 
 const MAX_FILE_WIKI_GENERATIONS = Number(
-  process.env.CODE_SENTINAL_MAX_WIKI_FILES || "40"
+  process.env.CODE_SENTINAL_MAX_WIKI_FILES || "5"
 );
 
 function shouldGenerateFileWiki(filePath: string): boolean {

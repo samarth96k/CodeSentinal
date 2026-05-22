@@ -79336,7 +79336,7 @@ async function writeFileWiki(sourcePath, content) {
 
 
 
-const MAX_FILE_WIKI_GENERATIONS = Number(external_process_.env.CODE_SENTINAL_MAX_WIKI_FILES || "40");
+const MAX_FILE_WIKI_GENERATIONS = Number(external_process_.env.CODE_SENTINAL_MAX_WIKI_FILES || "5");
 function shouldGenerateFileWiki(filePath) {
     const lower = filePath.toLowerCase();
     if (lower.includes("package-lock.json"))
