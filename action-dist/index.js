@@ -78568,6 +78568,12 @@ ${JSON.stringify(reviewChunks, null, 2)}
 
 main.config();
 let ai = null;
+function llm_sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+async function waitBeforeGeminiCall() {
+    await llm_sleep(65000);
+}
 function getGeminiClient() {
     if (ai)
         return ai;
@@ -78579,6 +78585,7 @@ function getGeminiClient() {
     return ai;
 }
 async function generateTextWithGemini(prompt) {
+    await waitBeforeGeminiCall();
     const response = await getGeminiClient().models.generateContent({
         model: "gemini-2.5-flash-lite",
         contents: prompt,
@@ -78664,6 +78671,7 @@ async function reviewChunksWithLLM(reviewChunks) {
         return { reviews: [] };
     }
     const prompt = buildReviewPrompt(reviewChunks);
+    await waitBeforeGeminiCall();
     const response = await getGeminiClient().models.generateContent({
         model: "gemini-2.5-flash-lite",
         contents: prompt,

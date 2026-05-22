@@ -12,7 +12,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function waitBeforeGeminiCall(): Promise<void> {
-  await sleep(15000);
+  await sleep(65000);
 }
 
 function getGeminiClient(): GoogleGenAI {
