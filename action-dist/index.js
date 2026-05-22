@@ -78572,7 +78572,7 @@ function llm_sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 async function waitBeforeGeminiCall() {
-    await llm_sleep(65000);
+    await llm_sleep(5000);
 }
 function getGeminiClient() {
     if (ai)
