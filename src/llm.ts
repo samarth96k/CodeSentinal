@@ -7,6 +7,14 @@ dotenv.config();
 
 let ai: GoogleGenAI | null = null;
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitBeforeGeminiCall(): Promise<void> {
+  await sleep(15000);
+}
+
 function getGeminiClient(): GoogleGenAI {
   if (ai) return ai;
 
@@ -23,6 +31,8 @@ function getGeminiClient(): GoogleGenAI {
 }
 
 export async function generateTextWithGemini(prompt: string): Promise<string> {
+  await waitBeforeGeminiCall();
+
   const response = await getGeminiClient().models.generateContent({
     model: "gemini-2.5-flash-lite",
     contents: prompt,
@@ -119,6 +129,8 @@ export async function reviewChunksWithLLM(
   }
 
   const prompt = buildReviewPrompt(reviewChunks);
+
+  await waitBeforeGeminiCall();
 
   const response = await getGeminiClient().models.generateContent({
     model: "gemini-2.5-flash-lite",
