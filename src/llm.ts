@@ -24,7 +24,7 @@ function getGeminiClient(): GoogleGenAI {
 
 export async function generateTextWithGemini(prompt: string): Promise<string> {
   const response = await getGeminiClient().models.generateContent({
-    model: "gemini-3.1-flash-lite",
+    model: "gemini-2.5-flash-lite",
     contents: prompt,
   });
 
@@ -121,7 +121,7 @@ export async function reviewChunksWithLLM(
   const prompt = buildReviewPrompt(reviewChunks);
 
   const response = await getGeminiClient().models.generateContent({
-    model: "gemini-3.1-flash-lite",
+    model: "gemini-2.5-flash-lite",
     contents: prompt,
     config: {
       responseMimeType: "application/json",

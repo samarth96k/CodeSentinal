@@ -78580,7 +78580,7 @@ function getGeminiClient() {
 }
 async function generateTextWithGemini(prompt) {
     const response = await getGeminiClient().models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash-lite",
         contents: prompt,
     });
     return response.text?.trim() || "";
@@ -78665,7 +78665,7 @@ async function reviewChunksWithLLM(reviewChunks) {
     }
     const prompt = buildReviewPrompt(reviewChunks);
     const response = await getGeminiClient().models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash-lite",
         contents: prompt,
         config: {
             responseMimeType: "application/json",
