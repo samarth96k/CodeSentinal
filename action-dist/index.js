@@ -56878,12 +56878,9 @@ function configureRuntimeFromActionInputs() {
         process.env.CODE_SENTINAL_MAX_WIKI_FILES = maxWikiFilesInput;
     }
     const repoRootInput = _actions_core__WEBPACK_IMPORTED_MODULE_2__/* .getInput */ .V4("repo_root") || ".";
-    if (repoRootInput) {
-        process.chdir(repoRootInput);
-    }
+    process.chdir(repoRootInput);
     console.log("[CodeSentinal] Working directory:", process.cwd());
 }
-// const mode = (process.argv[2] || "review") as RunMode;
 function getRunMode() {
     const cliMode = process.argv[2];
     if (cliMode === "review" || cliMode === "wiki-update" || cliMode === "all") {
@@ -56897,22 +56894,44 @@ function getRunMode() {
     }
     throw new Error(`Invalid mode: ${actionMode}`);
 }
+async function getPullRequestFromContextOrInput() {
+    const context = _actions_github__WEBPACK_IMPORTED_MODULE_1__/* .context */ ._;
+    let pullRequest = context.payload.pull_request;
+    if (pullRequest) {
+        return pullRequest;
+    }
+    const manualPrNumber = _actions_core__WEBPACK_IMPORTED_MODULE_2__/* .getInput */ .V4("pr_number") ||
+        context.payload.inputs?.pr_number;
+    if (!manualPrNumber) {
+        throw new Error("No pull request found. If using workflow_dispatch, provide pr_number input.");
+    }
+    const pullNumber = Number(manualPrNumber);
+    if (Number.isNaN(pullNumber)) {
+        throw new Error(`Invalid pr_number: ${manualPrNumber}`);
+    }
+    const token = process.env.GITHUB_TOKEN || _actions_core__WEBPACK_IMPORTED_MODULE_2__/* .getInput */ .V4("github_token");
+    if (!token) {
+        throw new Error("Missing github_token.");
+    }
+    const octokit = _actions_github__WEBPACK_IMPORTED_MODULE_1__/* .getOctokit */ .Q(token);
+    const { owner, repo } = context.repo;
+    console.log(`[CodeSentinal] Fetching PR #${pullNumber} manually...`);
+    const response = await octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber,
+    });
+    return response.data;
+}
 configureRuntimeFromActionInputs();
 const mode = getRunMode();
-const context = _actions_github__WEBPACK_IMPORTED_MODULE_1__/* .context */ ._;
-const pullRequest = context.payload.pull_request;
-if (!pullRequest) {
-    throw new Error("No pull request found.");
-}
+// const context = github.context;
+const pullRequest = await getPullRequestFromContextOrInput();
 const pullNumber = pullRequest.number;
 function isForkPullRequest(pr) {
-    if (!pr)
-        return false;
     return pr.head.repo.full_name !== pr.base.repo.full_name;
 }
 function shouldUseWikiContext(pr) {
-    // Fork PRs under pull_request_target should be diff-only for safety.
-    // We should not generate/read repo wiki without a trusted checkout.
     if (isForkPullRequest(pr)) {
         console.log("[CodeSentinal] Fork PR detected. Skipping LLM Wiki context for safe review.");
         return false;
@@ -56941,8 +56960,6 @@ async function buildReviewChunks() {
 async function runReviewMode(chunks) {
     console.log("[CodeSentinal] Running review mode...");
     const commitId = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getSHA */ .TK)(pullNumber);
-    // await ensureWikiAvailable();
-    // const chunksWithWikiContext = await getWikiContextForChunks(chunks);
     const chunksWithWikiContext = shouldUseWikiContext(pullRequest)
         ? await (async () => {
             await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
@@ -82790,10 +82807,9 @@ function getIDToken(aud) {
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
-  _: () => (/* binding */ github_context)
+  _: () => (/* binding */ github_context),
+  Q: () => (/* binding */ getOctokit)
 });
-
-// UNUSED EXPORTS: getOctokit
 
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(9896);
@@ -82931,7 +82947,7 @@ const defaults = {
         fetch: getProxyFetch(baseUrl)
     }
 };
-const utils_GitHub = dist_src/* Octokit */.E.plugin(plugin_rest_endpoint_methods_dist_src/* restEndpointMethods */._, dist_bundle/* paginateRest */.ud).defaults(defaults);
+const GitHub = dist_src/* Octokit */.E.plugin(plugin_rest_endpoint_methods_dist_src/* restEndpointMethods */._, dist_bundle/* paginateRest */.ud).defaults(defaults);
 
 /**
  * Convience function to correctly format Octokit Options to pass into the constructor.
@@ -82939,15 +82955,15 @@ const utils_GitHub = dist_src/* Octokit */.E.plugin(plugin_rest_endpoint_methods
  * @param     token    the repo PAT or GITHUB_TOKEN
  * @param     options  other options to set
  */
-function utils_getOctokitOptions(token, options) {
+function getOctokitOptions(token, options) {
     const opts = Object.assign({}, options || {}); // Shallow clone - don't mutate the object provided by the caller
     // Auth
-    const auth = Utils.getAuthString(token, opts);
+    const auth = getAuthString(token, opts);
     if (auth) {
         opts.auth = auth;
     }
     // Orchestration ID
-    const userAgent = Utils.getUserAgentWithOrchestrationId(opts.userAgent);
+    const userAgent = getUserAgentWithOrchestrationId(opts.userAgent);
     if (userAgent) {
         opts.userAgent = userAgent;
     }

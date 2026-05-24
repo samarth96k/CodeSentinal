@@ -24,33 +24,26 @@ type RunMode = "review" | "wiki-update" | "all";
 
 function configureRuntimeFromActionInputs(): void {
   const geminiInput = core.getInput("gemini_api_key");
-
   if (geminiInput && !process.env.GEMINI_API_KEY) {
     process.env.GEMINI_API_KEY = geminiInput;
   }
 
   const githubTokenInput = core.getInput("github_token");
-
   if (githubTokenInput && !process.env.GITHUB_TOKEN) {
     process.env.GITHUB_TOKEN = githubTokenInput;
   }
 
   const maxWikiFilesInput = core.getInput("max_wiki_files");
-
   if (maxWikiFilesInput && !process.env.CODE_SENTINAL_MAX_WIKI_FILES) {
     process.env.CODE_SENTINAL_MAX_WIKI_FILES = maxWikiFilesInput;
   }
 
   const repoRootInput = core.getInput("repo_root") || ".";
-
-  if (repoRootInput) {
-    process.chdir(repoRootInput);
-  }
+  process.chdir(repoRootInput);
 
   console.log("[CodeSentinal] Working directory:", process.cwd());
 }
 
-// const mode = (process.argv[2] || "review") as RunMode;
 function getRunMode(): RunMode {
   const cliMode = process.argv[2];
 
@@ -71,33 +64,67 @@ function getRunMode(): RunMode {
   throw new Error(`Invalid mode: ${actionMode}`);
 }
 
+async function getPullRequestFromContextOrInput() {
+  const context = github.context;
+
+  let pullRequest = context.payload.pull_request;
+
+  if (pullRequest) {
+    return pullRequest;
+  }
+
+  const manualPrNumber =
+    core.getInput("pr_number") ||
+    context.payload.inputs?.pr_number;
+
+  if (!manualPrNumber) {
+    throw new Error(
+      "No pull request found. If using workflow_dispatch, provide pr_number input."
+    );
+  }
+
+  const pullNumber = Number(manualPrNumber);
+
+  if (Number.isNaN(pullNumber)) {
+    throw new Error(`Invalid pr_number: ${manualPrNumber}`);
+  }
+
+  const token = process.env.GITHUB_TOKEN || core.getInput("github_token");
+
+  if (!token) {
+    throw new Error("Missing github_token.");
+  }
+
+  const octokit = github.getOctokit(token);
+  const { owner, repo } = context.repo;
+
+  console.log(`[CodeSentinal] Fetching PR #${pullNumber} manually...`);
+
+  const response = await octokit.rest.pulls.get({
+    owner,
+    repo,
+    pull_number: pullNumber,
+  });
+
+  return response.data;
+}
+
 configureRuntimeFromActionInputs();
 
 const mode = getRunMode();
-
-const context = github.context;
-const pullRequest = context.payload.pull_request;
-
-if (!pullRequest) {
-  throw new Error("No pull request found.");
-}
-
+// const context = github.context;
+const pullRequest = await getPullRequestFromContextOrInput();
 const pullNumber = pullRequest.number;
 
 function isForkPullRequest(pr: typeof pullRequest): boolean {
-  if (!pr) return false;
-
   return pr.head.repo.full_name !== pr.base.repo.full_name;
 }
 
 function shouldUseWikiContext(pr: typeof pullRequest): boolean {
-  // Fork PRs under pull_request_target should be diff-only for safety.
-  // We should not generate/read repo wiki without a trusted checkout.
   if (isForkPullRequest(pr)) {
     console.log(
       "[CodeSentinal] Fork PR detected. Skipping LLM Wiki context for safe review."
     );
-
     return false;
   }
 
@@ -134,9 +161,6 @@ async function runReviewMode(chunks: ReviewChunk[]) {
 
   const commitId = await getSHA(pullNumber);
 
-  // await ensureWikiAvailable();
-  // const chunksWithWikiContext = await getWikiContextForChunks(chunks);
-
   const chunksWithWikiContext = shouldUseWikiContext(pullRequest)
     ? await (async () => {
         await ensureWikiAvailable();
@@ -152,7 +176,6 @@ async function runReviewMode(chunks: ReviewChunk[]) {
   }
 
   const postResult = await postComments(result, commitId, pullNumber);
-
   console.log(JSON.stringify(postResult, null, 2));
 }
 
@@ -160,13 +183,15 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
   console.log("[CodeSentinal Wiki] Running wiki-update mode...");
 
   if (isForkPullRequest(pullRequest)) {
-    console.log("[CodeSentinal Wiki] Fork PR detected. Skipping wiki update for safety.");
+    console.log(
+      "[CodeSentinal Wiki] Fork PR detected. Skipping wiki update for safety."
+    );
     return;
   }
 
   await ensureWikiAvailable();
-  const chunksWithWikiContext = await getWikiContextForChunks(chunks);
 
+  const chunksWithWikiContext = await getWikiContextForChunks(chunks);
   const wikiUpdatePlan = await planWikiMarkdownUpdates(chunksWithWikiContext);
 
   if (!wikiUpdatePlan.updatesRequired) {
@@ -205,17 +230,17 @@ if (mode === "review") {
 } else if (mode === "wiki-update") {
   await runWikiUpdateMode(chunks);
 } else if (mode === "all") {
-    const results = await Promise.allSettled([
-      runReviewMode(chunks),
-      runWikiUpdateMode(chunks),
-    ]);
+  const results = await Promise.allSettled([
+    runReviewMode(chunks),
+    runWikiUpdateMode(chunks),
+  ]);
 
-    for (const result of results) {
-      if (result.status === "rejected") {
-        console.error("[CodeSentinal] One pipeline failed:");
-        console.error(result.reason);
-      }
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("[CodeSentinal] One pipeline failed:");
+      console.error(result.reason);
     }
+  }
 } else {
   throw new Error(`Invalid mode: ${mode}`);
 }
