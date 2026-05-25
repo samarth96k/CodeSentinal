@@ -25,6 +25,10 @@ inputs:
     description: "Repository root path to scan and write .codesentinal/wiki"
     required: false
     default: "."
+  
+  pr_number:
+    description: "Pull request number for manual workflow_dispatch runs"
+    required: false
 
 runs:
   using: "node20"
