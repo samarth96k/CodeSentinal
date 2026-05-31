@@ -10,6 +10,12 @@ export const repo = github.context.repo.repo;
 
 let octokitClient: Octokit | null = null;
 
+function assertValidPullNumber(pullNumber: number): void {
+  if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
+    throw new Error(`Invalid pull request number: ${pullNumber}`);
+  }
+}
+
 function getOctokitClient(): Octokit {
   if (octokitClient) return octokitClient;
 
@@ -21,10 +27,7 @@ function getOctokitClient(): Octokit {
     );
   }
 
-  octokitClient = new Octokit({
-    auth: token,
-  });
-
+  octokitClient = new Octokit({ auth: token });
   return octokitClient;
 }
 
@@ -33,24 +36,22 @@ export async function getPullRequests() {
     owner,
     repo,
     per_page: 5,
-    headers: {
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+    headers: { "X-GitHub-Api-Version": "2022-11-28" },
   });
 
   return prs.data;
 }
 
 export async function getPullRequestFiles(pullNumber: number) {
+  assertValidPullNumber(pullNumber);
+
   const response = await getOctokitClient().request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
     {
       owner,
       repo,
       pull_number: pullNumber,
-      headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+      headers: { "X-GitHub-Api-Version": "2022-11-28" },
     }
   );
 
@@ -65,15 +66,15 @@ export async function getPullRequestFiles(pullNumber: number) {
 }
 
 export async function getSHA(pullNumber: number) {
+  assertValidPullNumber(pullNumber);
+
   const response = await getOctokitClient().request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}",
     {
       owner,
       repo,
       pull_number: pullNumber,
-      headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+      headers: { "X-GitHub-Api-Version": "2022-11-28" },
     }
   );
 
@@ -85,14 +86,12 @@ export async function postComments(
   commit_id: string,
   pullNumber: number
 ) {
+  assertValidPullNumber(pullNumber);
+
   const responses = [];
 
   for (const review of result.reviews) {
     try {
-      console.log("\n====================================");
-      console.log("POSTING COMMENT:");
-      console.log(review.githubComment);
-
       const res = await getOctokitClient().request(
         "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
         {
@@ -101,14 +100,9 @@ export async function postComments(
           pull_number: pullNumber,
           commit_id,
           ...review.githubComment,
-          headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
+          headers: { "X-GitHub-Api-Version": "2022-11-28" },
         }
       );
-
-      console.log("SUCCESS");
-      console.log("COMMENT ID:", res.data.id);
 
       responses.push({
         success: true,
@@ -117,9 +111,6 @@ export async function postComments(
         response: res.data,
       });
     } catch (error: any) {
-      console.log("FAILED");
-      console.log(error);
-
       responses.push({
         success: false,
         path: review.githubComment.path,
@@ -137,15 +128,15 @@ export async function postComments(
 }
 
 async function getPullRequestDetails(pullNumber: number) {
+  assertValidPullNumber(pullNumber);
+
   const response = await getOctokitClient().request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}",
     {
       owner,
       repo,
       pull_number: pullNumber,
-      headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+      headers: { "X-GitHub-Api-Version": "2022-11-28" },
     }
   );
 
@@ -174,14 +165,11 @@ async function getExistingFileSha(params: {
         repo: params.repo,
         path: params.path,
         ref: params.ref,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers: { "X-GitHub-Api-Version": "2022-11-28" },
       }
     );
 
     if (Array.isArray(response.data)) return undefined;
-
     return "sha" in response.data ? response.data.sha : undefined;
   } catch (error: any) {
     if (error.status === 404) return undefined;
@@ -200,10 +188,11 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
     commitMessage = "docs: update CodeSentinal LLM wiki",
   } = params;
 
+  assertValidPullNumber(pullNumber);
+
   const safeChanges = changes.filter(assertSafeWikiMarkdownChange);
 
   if (safeChanges.length === 0) {
-    console.log("[CodeSentinal Wiki] No safe wiki markdown changes to commit.");
     return {
       committed: false,
       reason: "No safe wiki markdown changes.",
@@ -211,14 +200,9 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
   }
 
   const pr = await getPullRequestDetails(pullNumber);
-
   const isSameRepoPR = pr.head.repo?.full_name === pr.base.repo?.full_name;
 
   if (!isSameRepoPR) {
-    console.log(
-      "[CodeSentinal Wiki] Fork PR detected. Direct wiki commit skipped."
-    );
-
     return {
       committed: false,
       reason: "Fork PR detected. Direct commits are disabled for safety.",
@@ -226,7 +210,6 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
   }
 
   const branch = pr.head.ref;
-
   const results = [];
 
   for (const change of safeChanges) {
@@ -248,9 +231,7 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
           content: Buffer.from(change.content, "utf-8").toString("base64"),
           branch,
           sha,
-          headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
+          headers: { "X-GitHub-Api-Version": "2022-11-28" },
         }
       );
 
