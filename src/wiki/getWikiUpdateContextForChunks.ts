@@ -8,10 +8,7 @@ import type {
   ReviewChunkWithWikiContext,
   WikiContextDocument,
 } from "./wikiReviewTypes.js";
-import { analyzeWikiImpact } from "./wikiImpactAnalyzer.js";
-import { getRelevantMemories } from "./repositoryMemoryRetriever.js";
-import { isSafeWikiMarkdownPath } from "./wikiPathMapper.js";
-import { debugJson } from "./utils/debugLogger.js";
+import .js";
 
 async function loadWikiDocument(
   path: string,

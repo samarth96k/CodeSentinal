@@ -222,7 +222,49 @@ export async function getWikiContextForChunks(
       );
     }
 
-    const uniqueDocs =
+   export async function getWikiContextForChunks(
+  chunks: ReviewChunk[]
+): Promise<ReviewChunkWithWikiContext[]> {
+  const globalDocuments =
+    await loadGlobalWikiDocuments();
+
+      // const globalContext =
+      //   buildWikiContextText(
+      //     globalDocuments
+      //   );
+
+      const results:
+        ReviewChunkWithWikiContext[] = [];
+
+      for (const chunk of chunks) {
+          const docs: WikiContextDocument[] = [
+      ...globalDocuments,
+    ];
+
+    const fileWikiPath =
+      sourcePathToWikiPath(
+        chunk.filename
+      );
+
+    const fileDoc =
+      await loadWikiDocument(
+        fileWikiPath,
+        `File-level wiki context for ${chunk.filename}`
+      );
+
+    if (fileDoc) {
+      docs.push(fileDoc);
+    }
+
+    const relevantMemories =
+      await getRelevantMemories(
+        chunk,
+        CONFIG.review.maxRepositoryMemoriesPerChunk
+      );
+
+      console.log(
+  "[CodeSentinal Memory Retrieval]"
+); const uniqueDocs =
       dedupeDocuments(docs);
 
     const wikiContext =

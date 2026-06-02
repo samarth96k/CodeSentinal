@@ -6,18 +6,7 @@ export function preprocessParsedFiles(parsed: any, filename: string) {
 
     if (!Array.isArray(parsed)) {
         console.log("INVALID PARSED DATA FOR:", filename);
-        return [];
-    }
-
-    return parsed;
-}
-
-function shouldIgnoreFile(filename: string): boolean {
-    const normalizedFilename = filename.replace(/\\/g, "/");
-
-    const ignoredExactFiles = [
-        "package-lock.json",
-        "yarn.lock",
+        retu
         "pnpm-lock.yaml",
         "package.json.lock",
     ];
@@ -57,10 +46,6 @@ function shouldIgnoreFile(filename: string): boolean {
     const fileNameOnly = normalizedFilename.split("/").pop() ?? normalizedFilename;
 
     if (ignoredExactFiles.includes(fileNameOnly)) {
-        return true;
-    }
-
-    if (ignoredFolders.some((folder) => normalizedFilename.includes(folder))) {
         return true;
     }
 

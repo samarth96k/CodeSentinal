@@ -4,7 +4,7 @@ import type {
 } from "./wikiReviewTypes.js";
 
 function buildCompactChunk(
-  chunk: ReviewChunkWithWikiContext
+  chunk: ReviewChunkWithWikiContextWIKIUPDATE
 ) {
   return {
     filename: chunk.filename,
