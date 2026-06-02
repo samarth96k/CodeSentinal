@@ -1,97 +1,345 @@
 import { z } from "zod";
+
 import { generateTextWithGemini } from "../llm.js";
+import { CONFIG } from "../config/runtimeConfig.js";
+
 import { buildWikiUpdatePrompt } from "./wikiUpdatePrompt.js";
-import { isSafeWikiMarkdownPath } from "./wikiPathMapper.js";
+
 import type {
   ReviewChunkWithWikiContext,
+  WikiMarkdownUpdate,
   WikiUpdatePlan,
+  WikiUpdateClassification,
 } from "./wikiReviewTypes.js";
 
 const wikiUpdatePlanSchema = z.object({
+  classification: z.object({
+    category: z.enum([
+      "architecture",
+      "data-contract",
+      "review-behavior",
+      "workflow",
+      "security",
+      "repository-memory",
+      "implementation-detail",
+      "no-wiki-update",
+    ]),
+
+    confidence: z.number().min(0).max(1),
+
+    reason: z.string(),
+  }),
+
   updatesRequired: z.boolean(),
+
   summary: z.string(),
+
   updates: z.array(
     z.object({
-      wikiFilePath: z.string(),
-      changeType: z.literal("append"),
+      target: z.enum([
+        "file",
+        "architecture",
+        "database-schema",
+        "review-rules",
+        "repository-memory",
+      ]),
+
+      sourceFile: z.string().optional(),
+
+      memorySection: z
+        .enum([
+          "Architectural Decisions",
+          "Known Constraints",
+          "Migration Notes",
+          "Review Findings",
+          "Integration Knowledge",
+        ])
+        .optional(),
+
       reason: z.string(),
+
       contentToAppend: z.string(),
     })
   ),
 });
 
+function emptyClassification(): WikiUpdateClassification {
+  return {
+    category: "no-wiki-update",
+    confidence: 1,
+    reason:
+      "No valid wiki update classification available.",
+  };
+}
+
+function emptyPlan(
+  summary: string
+): WikiUpdatePlan {
+  return {
+    classification: emptyClassification(),
+
+    updatesRequired: false,
+
+    summary,
+
+    updates: [],
+  };
+}
+
 function extractJson(raw: string): string {
   const trimmed = raw.trim();
 
   if (trimmed.startsWith("```json")) {
-    return trimmed.replace(/^```json/i, "").replace(/```$/i, "").trim();
+    return trimmed
+      .replace(/^```json/i, "")
+      .replace(/```$/i, "")
+      .trim();
   }
 
   if (trimmed.startsWith("```")) {
-    return trimmed.replace(/^```/i, "").replace(/```$/i, "").trim();
+    return trimmed
+      .replace(/^```/i, "")
+      .replace(/```$/i, "")
+      .trim();
   }
 
   return trimmed;
 }
 
-function sanitizePlan(plan: WikiUpdatePlan): WikiUpdatePlan {
-  const safeUpdates = plan.updates.filter((update) => {
-    if (!isSafeWikiMarkdownPath(update.wikiFilePath)) return false;
-    if (!update.contentToAppend.trim()) return false;
-    return true;
-  });
+function sanitizePlan(
+  plan: WikiUpdatePlan
+): WikiUpdatePlan {
+  const safeUpdates = plan.updates.filter(
+    (update) => {
+      if (
+        !update.contentToAppend.trim()
+      ) {
+        return false;
+      }
+
+      if (
+        update.target === "file" &&
+        !update.sourceFile
+      ) {
+        return false;
+      }
+
+      if (
+        update.target ===
+          "repository-memory" &&
+        !update.memorySection
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+  );
 
   return {
-    updatesRequired: plan.updatesRequired && safeUpdates.length > 0,
+    classification:
+      plan.classification,
+
+    updatesRequired:
+      plan.updatesRequired &&
+      safeUpdates.length > 0,
+
     summary:
       safeUpdates.length > 0
         ? plan.summary
         : "No safe wiki markdown updates required.",
+
     updates: safeUpdates,
   };
+}
+
+function chunkArray<T>(
+  items: T[],
+  size: number
+): T[][] {
+  const result: T[][] = [];
+
+  for (
+    let i = 0;
+    i < items.length;
+    i += size
+  ) {
+    result.push(
+      items.slice(i, i + size)
+    );
+  }
+
+  return result;
+}
+
+function deduplicateUpdates(
+  updates: WikiMarkdownUpdate[]
+): WikiMarkdownUpdate[] {
+  const map = new Map<
+    string,
+    WikiMarkdownUpdate
+  >();
+
+  for (const update of updates) {
+    const key = JSON.stringify({
+      target: update.target,
+      sourceFile:
+        update.sourceFile,
+      memorySection:
+        update.memorySection,
+      content:
+        update.contentToAppend.trim(),
+    });
+
+    if (!map.has(key)) {
+      map.set(key, update);
+    }
+  }
+
+  return [...map.values()];
+}
+
+async function executeSingleBatch(
+  chunks: ReviewChunkWithWikiContext[]
+): Promise<WikiUpdatePlan> {
+  const prompt =
+    buildWikiUpdatePrompt(chunks);
+
+  const raw =
+    await generateTextWithGemini(
+      prompt
+    );
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(
+      extractJson(raw)
+    );
+  } catch {
+    console.log(
+      "[CodeSentinal Wiki] Invalid JSON from planner."
+    );
+
+    return emptyPlan(
+      "Planner returned invalid JSON."
+    );
+  }
+
+  const validated =
+    wikiUpdatePlanSchema.safeParse(
+      parsed
+    );
+
+  if (!validated.success) {
+    console.log(
+      "[CodeSentinal Wiki] Planner schema mismatch."
+    );
+
+    console.log(validated.error);
+
+    return emptyPlan(
+      "Planner response failed schema validation."
+    );
+  }
+
+  return sanitizePlan(
+    validated.data as WikiUpdatePlan
+  );
 }
 
 export async function planWikiMarkdownUpdates(
   chunks: ReviewChunkWithWikiContext[]
 ): Promise<WikiUpdatePlan> {
   if (chunks.length === 0) {
-    return {
-      updatesRequired: false,
-      summary: "No chunks available for wiki update planning.",
-      updates: [],
-    };
+    return emptyPlan(
+      "No chunks available for wiki update planning."
+    );
   }
 
-  const prompt = buildWikiUpdatePrompt(chunks);
-  const raw = await generateTextWithGemini(prompt);
+  const batchSize =
+    CONFIG.wiki.maxFilesPerBatch;
 
-  let parsed: unknown;
+  const chunkBatches =
+    chunkArray(
+      chunks,
+      batchSize
+    );
 
-  try {
-    parsed = JSON.parse(extractJson(raw));
-  } catch {
-    console.log("[CodeSentinal Wiki] Invalid JSON from wiki update planner:");
-    console.log(raw);
+  console.log(
+    `[CodeSentinal Wiki] Processing ${chunks.length} chunks in ${chunkBatches.length} batch(es).`
+  );
 
-    return {
-      updatesRequired: false,
-      summary: "Wiki update planner returned invalid JSON.",
-      updates: [],
-    };
+  const allUpdates: WikiMarkdownUpdate[] =
+    [];
+
+  const summaries: string[] = [];
+
+  let highestConfidence =
+    emptyClassification();
+
+  for (
+    let batchIndex = 0;
+    batchIndex <
+    chunkBatches.length;
+    batchIndex++
+  ) {
+    const batch =
+      chunkBatches[batchIndex];
+
+    console.log(
+      `[CodeSentinal Wiki] Running planner batch ${batchIndex + 1}/${chunkBatches.length}`
+    );
+
+    try {
+      const result =
+        await executeSingleBatch(
+          batch
+        );
+
+      summaries.push(
+        result.summary
+      );
+
+      allUpdates.push(
+        ...result.updates
+      );
+
+      if (
+        result.classification
+          .confidence >
+        highestConfidence.confidence
+      ) {
+        highestConfidence =
+          result.classification;
+      }
+    } catch (error) {
+      console.log(
+        `[CodeSentinal Wiki] Planner batch failed: ${batchIndex + 1}`
+      );
+
+      console.log(error);
+    }
   }
 
-  const validated = wikiUpdatePlanSchema.safeParse(parsed);
+  const dedupedUpdates =
+    deduplicateUpdates(
+      allUpdates
+    );
 
-  if (!validated.success) {
-    console.log("[CodeSentinal Wiki] Wiki update plan schema mismatch:");
-    console.log(validated.error);
+  return {
+    classification:
+      dedupedUpdates.length > 0
+        ? highestConfidence
+        : emptyClassification(),
 
-    return {
-      updatesRequired: false,
-      summary: "Wiki update planner response did not match schema.",
-      updates: [],
-    };
-  }
+    updatesRequired:
+      dedupedUpdates.length > 0,
 
-  return sanitizePlan(validated.data);
+    summary:
+      summaries.join(" | ") ||
+      "No wiki updates required.",
+
+    updates: dedupedUpdates,
+  };
 }

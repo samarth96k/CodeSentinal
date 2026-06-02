@@ -36,5 +36,6 @@ export function getCoreWikiPathsForReview(): string[] {
     `${WIKI_ROOT}/review-rules.md`,
     `${WIKI_ROOT}/coding-rules.md`,
     `${WIKI_ROOT}/database-schema.md`,
+    `${WIKI_ROOT}/repository-memory.md`,
   ];
 }

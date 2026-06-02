@@ -224,22 +224,72 @@ export async function analyzeRepository(repoRoot: string): Promise<RepositoryAna
     });
   }
 
+  // const fileAnalyses: FileAnalysis[] = files.map((file) => {
+  //   const imports = extractImports(file.content);
+  //   const exports = extractExports(file.content);
+  //   const symbols = extractSymbols(file.content);
+
+  //   return {
+  //     file,
+  //     imports,
+  //     exports,
+  //     symbols,
+  //     dependsOn: resolveLocalDependencies(file.path, imports),
+  //     purpose: inferPurpose(file, symbols),
+  //     risks: detectRisks(file, file.content),
+  //   };
+  // });
   const fileAnalyses: FileAnalysis[] = files.map((file) => {
     const imports = extractImports(file.content);
+
     const exports = extractExports(file.content);
+
     const symbols = extractSymbols(file.content);
+
+    const risks = detectRisks(
+      file,
+      file.content
+    );
 
     return {
       file,
+
       imports,
+
       exports,
+
       symbols,
-      dependsOn: resolveLocalDependencies(file.path, imports),
-      purpose: inferPurpose(file, symbols),
-      risks: detectRisks(file, file.content),
+
+      dependsOn: resolveLocalDependencies(
+        file.path,
+        imports
+      ),
+
+      purpose: inferPurpose(
+        file,
+        symbols
+      ),
+
+      risks,
+
+      inferredResponsibilities:
+        inferResponsibilities(
+          file,
+          symbols
+        ),
+
+      architecturalRole:
+        inferArchitecturalRole(
+          file
+        ),
+
+      reviewFocusAreas:
+        inferReviewFocusAreas(
+          file,
+          risks
+        ),
     };
   });
-
   return {
     repoRoot,
     readme,
@@ -254,4 +304,124 @@ export async function analyzeRepository(repoRoot: string): Promise<RepositoryAna
     configFiles: files.filter((f) => f.kind === "config").map((f) => f.path),
     testFiles: files.filter((f) => f.kind === "test").map((f) => f.path),
   };
+}
+
+function inferResponsibilities(
+  file: RepoFile,
+  symbols: ExtractedSymbol[]
+): string[] {
+  const responsibilities = new Set<string>();
+
+  const lower = file.path.toLowerCase();
+
+  if (lower.includes("wiki")) {
+    responsibilities.add("Repository memory generation");
+    responsibilities.add("Wiki lifecycle management");
+  }
+
+  if (lower.includes("github")) {
+    responsibilities.add("GitHub API communication");
+    responsibilities.add("Pull request operations");
+  }
+
+  if (lower.includes("llm")) {
+    responsibilities.add("LLM communication");
+    responsibilities.add("Prompt orchestration");
+  }
+
+  if (lower.includes("review")) {
+    responsibilities.add("Pull request review generation");
+  }
+
+  if (lower.includes("diff")) {
+    responsibilities.add("Patch parsing");
+    responsibilities.add("Code change extraction");
+  }
+
+  if (symbols.some((s) => s.type === "type")) {
+    responsibilities.add("Type contract definition");
+  }
+
+  if (symbols.some((s) => s.type === "interface")) {
+    responsibilities.add("Interface definition");
+  }
+
+  if (responsibilities.size === 0) {
+    responsibilities.add("Repository functionality");
+  }
+
+  return Array.from(responsibilities);
+}
+
+function inferArchitecturalRole(
+  file: RepoFile
+): string {
+  const lower = file.path.toLowerCase();
+
+  if (
+    lower.includes("index") ||
+    lower.includes("main")
+  ) {
+    return "Application Entrypoint";
+  }
+
+  if (lower.includes("github")) {
+    return "Infrastructure Adapter";
+  }
+
+  if (lower.includes("llm")) {
+    return "AI Integration Layer";
+  }
+
+  if (lower.includes("wiki")) {
+    return "Repository Knowledge Layer";
+  }
+
+  if (lower.includes("diff")) {
+    return "Change Processing Layer";
+  }
+
+  if (lower.includes("review")) {
+    return "Review Engine";
+  }
+
+  return "Application Component";
+}
+
+function inferReviewFocusAreas(
+  file: RepoFile,
+  risks: string[]
+): string[] {
+  const focus = new Set<string>();
+
+  const lower = file.path.toLowerCase();
+
+  if (lower.includes("github")) {
+    focus.add("GitHub API correctness");
+    focus.add("Permission safety");
+  }
+
+  if (lower.includes("llm")) {
+    focus.add("Prompt correctness");
+    focus.add("Response validation");
+  }
+
+  if (lower.includes("wiki")) {
+    focus.add("Knowledge consistency");
+    focus.add("Context quality");
+  }
+
+  if (lower.includes("workflow")) {
+    focus.add("CI/CD security");
+  }
+
+  if (risks.length > 0) {
+    focus.add("Risk mitigation");
+  }
+
+  if (focus.size === 0) {
+    focus.add("Business logic correctness");
+  }
+
+  return Array.from(focus);
 }

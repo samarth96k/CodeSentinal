@@ -1,24 +1,37 @@
 import { readTextFile } from "./utils/fileHelpers.js";
+
 import {
   getCoreWikiPathsForReview,
   isSafeWikiMarkdownPath,
   sourcePathToWikiPath,
 } from "./wikiPathMapper.js";
+
+import { CONFIG } from "../config/runtimeConfig.js";
+
 import type {
   ReviewChunkWithWikiContext,
   WikiContextDocument,
 } from "./wikiReviewTypes.js";
+
 import type { ReviewChunk } from "../chunk.js";
 
-const MAX_DOC_CHARS = 3500;
-const MAX_CONTEXT_CHARS_PER_CHUNK = 12000;
+const MAX_DOC_CHARS =
+  CONFIG.review.maxWikiDocumentChars;
 
-function trimContent(content: string, maxChars: number): string {
-  if (content.length <= maxChars) return content;
+const MAX_CONTEXT_CHARS =
+  CONFIG.review.maxContextCharsPerChunk;
+
+function trimContent(
+  content: string,
+  maxChars: number
+): string {
+  if (content.length <= maxChars) {
+    return content;
+  }
 
   return (
     content.slice(0, maxChars) +
-    "\n\n<!-- CodeSentinal: content trimmed for token safety -->"
+    "\n\n<!-- trimmed -->"
   );
 }
 
@@ -26,78 +39,133 @@ async function loadWikiDocument(
   wikiFilePath: string,
   reason: string
 ): Promise<WikiContextDocument | null> {
-  if (!isSafeWikiMarkdownPath(wikiFilePath)) return null;
+  if (!isSafeWikiMarkdownPath(wikiFilePath)) {
+    return null;
+  }
 
-  const content = await readTextFile(wikiFilePath);
+  const content =
+    await readTextFile(wikiFilePath);
 
-  if (!content.trim()) return null;
+  if (!content.trim()) {
+    return null;
+  }
 
   return {
     wikiFilePath,
     reason,
-    content: trimContent(content, MAX_DOC_CHARS),
+    content: trimContent(
+      content,
+      MAX_DOC_CHARS
+    ),
   };
 }
 
 function dedupeDocuments(
-  documents: WikiContextDocument[]
+  docs: WikiContextDocument[]
 ): WikiContextDocument[] {
   const seen = new Set<string>();
-  const result: WikiContextDocument[] = [];
 
-  for (const doc of documents) {
-    if (seen.has(doc.wikiFilePath)) continue;
+  return docs.filter((doc) => {
+    if (seen.has(doc.wikiFilePath)) {
+      return false;
+    }
+
     seen.add(doc.wikiFilePath);
-    result.push(doc);
-  }
 
-  return result;
+    return true;
+  });
 }
 
-function buildWikiContextText(documents: WikiContextDocument[]): string {
-  let output = "";
+function buildWikiContextText(
+  documents: WikiContextDocument[]
+): string {
+  let result = "";
 
   for (const doc of documents) {
-    output += `\n\n---\nWIKI FILE: ${doc.wikiFilePath}\nREASON: ${doc.reason}\n\n${doc.content}`;
+    result += `
+---
+WIKI FILE: ${doc.wikiFilePath}
+REASON: ${doc.reason}
+
+${doc.content}
+`;
   }
 
-  return trimContent(output.trim(), MAX_CONTEXT_CHARS_PER_CHUNK);
+  return trimContent(
+    result.trim(),
+    MAX_CONTEXT_CHARS
+  );
+}
+
+async function loadGlobalWikiDocuments(): Promise<
+  WikiContextDocument[]
+> {
+  const docs: WikiContextDocument[] = [];
+
+  for (const path of getCoreWikiPathsForReview()) {
+    const doc =
+      await loadWikiDocument(
+        path,
+        "Global repository review context."
+      );
+
+    if (doc) {
+      docs.push(doc);
+    }
+  }
+
+  return dedupeDocuments(docs);
 }
 
 export async function getWikiContextForChunks(
   chunks: ReviewChunk[]
 ): Promise<ReviewChunkWithWikiContext[]> {
-  const enrichedChunks: ReviewChunkWithWikiContext[] = [];
+  const globalDocuments =
+    await loadGlobalWikiDocuments();
 
-  for (const chunk of chunks) {
-    const documents: WikiContextDocument[] = [];
-
-    for (const corePath of getCoreWikiPathsForReview()) {
-      const doc = await loadWikiDocument(
-        corePath,
-        "Core repository-level wiki context for PR review."
-      );
-
-      if (doc) documents.push(doc);
-    }
-
-    const matchingFileWikiPath = sourcePathToWikiPath(chunk.filename);
-
-    const fileDoc = await loadWikiDocument(
-      matchingFileWikiPath,
-      `File-level wiki context for changed file ${chunk.filename}.`
+  const globalContext =
+    buildWikiContextText(
+      globalDocuments
     );
 
-    if (fileDoc) documents.push(fileDoc);
+  const results:
+    ReviewChunkWithWikiContext[] = [];
 
-    const uniqueDocuments = dedupeDocuments(documents);
+  for (const chunk of chunks) {
+    const docs: WikiContextDocument[] = [
+      ...globalDocuments,
+    ];
 
-    enrichedChunks.push({
+    const fileWikiPath =
+      sourcePathToWikiPath(
+        chunk.filename
+      );
+
+    const fileDoc =
+      await loadWikiDocument(
+        fileWikiPath,
+        `File-level wiki context for ${chunk.filename}`
+      );
+
+    if (fileDoc) {
+      docs.push(fileDoc);
+    }
+
+    const uniqueDocs =
+      dedupeDocuments(docs);
+
+    results.push({
       ...chunk,
-      wikiDocuments: uniqueDocuments,
-      wikiContext: buildWikiContextText(uniqueDocuments),
+
+      wikiDocuments:
+        uniqueDocs,
+
+      wikiContext:
+        globalContext +
+        "\n\n" +
+        (fileDoc?.content ?? ""),
     });
   }
 
-  return enrichedChunks;
+  return results;
 }

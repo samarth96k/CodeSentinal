@@ -38,6 +38,9 @@ export type FileAnalysis = {
   dependsOn: string[];
   purpose: string;
   risks: string[];
+  inferredResponsibilities: string[];
+  architecturalRole: string;
+  reviewFocusAreas: string[];
 };
 
 export type RepositoryAnalysis = {
@@ -71,4 +74,52 @@ export type WikiGenerationContext = {
 export type WikiWriteResult = {
   writtenFiles: string[];
   skippedFiles: string[];
+};
+
+export type FileWikiDocument = {
+  sourceFilePath: string;
+
+  purpose: string;
+
+  responsibilities: string[];
+
+  criticalReviewContext: string[];
+
+  relatedFiles: string[];
+
+  repositoryMemory: string[];
+};
+
+export type CoreWikiDocument = {
+  architecture: string;
+
+  codingRules: string;
+
+  reviewRules: string;
+
+  databaseSchema: string;
+
+  index: string;
+};
+
+export type RepositoryMemoryEntry = {
+  filePath: string;
+
+  memory: string;
+};
+
+export type BatchedFileWikiGenerationResponse = {
+  files: FileWikiDocument[];
+};
+
+export type CoreWikiGenerationResponse = {
+  architecture: string;
+
+  codingRules: string;
+
+  reviewRules: string;
+
+  databaseSchema: string;
+
+  index: string;
 };

@@ -2,7 +2,8 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { buildReviewPrompt } from "./prompt.js";
-
+import {CONFIG} from "./config/runtimeConfig.js";
+import type { ReviewChunkWithWikiContext } from "./wiki/wikiReviewTypes.js";
 dotenv.config();
 
 let ai: GoogleGenAI | null = null;
@@ -11,8 +12,56 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function executeWithRetry<T>(
+  operation: () => Promise<T>
+): Promise<T> {
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await operation();
+    } catch (error) {
+      attempt++;
+
+      if (attempt >= CONFIG.llm.maxRetries) {
+        throw error;
+      }
+
+      const delay =
+        CONFIG.llm.retryDelayMs *
+        Math.pow(2, attempt - 1);
+
+      console.log(
+        `[CodeSentinal LLM] Retry ${attempt}/${CONFIG.llm.maxRetries} after ${delay}ms`
+      );
+
+      await sleep(delay);
+    }
+  }
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>
+): Promise<T> {
+  return Promise.race([
+    promise,
+
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Gemini request timeout exceeded"
+            )
+          ),
+        CONFIG.llm.requestTimeoutMs
+      )
+    ),
+  ]);
+}
+
 async function waitBeforeGeminiCall(): Promise<void> {
-  await sleep(5000);
+  await sleep(CONFIG.llm.retryDelayMs);
 }
 
 function getGeminiClient(): GoogleGenAI {
@@ -33,10 +82,15 @@ function getGeminiClient(): GoogleGenAI {
 export async function generateTextWithGemini(prompt: string): Promise<string> {
   await waitBeforeGeminiCall();
 
-  const response = await getGeminiClient().models.generateContent({
-    model: "gemini-3.1-flash-lite",
-    contents: prompt,
-  });
+  const response =
+    await executeWithRetry(() =>
+      withTimeout(
+        getGeminiClient().models.generateContent({
+          model: CONFIG.llm.wikiModel,
+          contents: prompt,
+        })
+      )
+    );
 
   return response.text?.trim() || "";
 }
@@ -122,7 +176,7 @@ const geminiResponseSchema = {
 };
 
 export async function reviewChunksWithLLM(
-  reviewChunks: unknown[]
+  reviewChunks: ReviewChunkWithWikiContext[]
 ): Promise<LLMReviewResponse> {
   if (reviewChunks.length === 0) {
     return { reviews: [] };
@@ -132,14 +186,22 @@ export async function reviewChunksWithLLM(
 
   await waitBeforeGeminiCall();
 
-  const response = await getGeminiClient().models.generateContent({
-    model: "gemini-3.1-flash-lite",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: geminiResponseSchema,
-    },
-  });
+  const response =
+    await executeWithRetry(() =>
+      withTimeout(
+        getGeminiClient().models.generateContent({
+          model: CONFIG.llm.reviewModel,
+          contents: prompt,
+          config: {
+            responseMimeType:
+              "application/json",
+
+            responseSchema:
+              geminiResponseSchema,
+          },
+        })
+      )
+    );
 
   const rawText = response.text ?? '{"reviews":[]}';
 
@@ -162,5 +224,12 @@ export async function reviewChunksWithLLM(
   }
 
   console.log("success from llm");
-  return validated.data;
+
+  return {
+    reviews:
+      validated.data.reviews.slice(
+        0,
+        CONFIG.github.maxInlineComments
+      ),
+  };
 }

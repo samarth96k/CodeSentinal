@@ -9,10 +9,12 @@ import {
   buildReviewRulesWikiPrompt,
 } from "./llmWikiPrompts.js";
 
-function cleanMarkdown(markdown: string, fallbackTitle: string): string {
+function cleanMarkdown(
+  markdown: string,
+  fallbackTitle: string
+): string {
   const cleaned = markdown
-    .replace(/^```md\s*/i, "")
-    .replace(/^```markdown\s*/i, "")
+    .replace(/^```(?:md|markdown)?\s*/i, "")
     .replace(/```$/i, "")
     .trim();
 
@@ -20,68 +22,79 @@ function cleanMarkdown(markdown: string, fallbackTitle: string): string {
     return `# ${fallbackTitle}\n\nNo content generated.\n`;
   }
 
-  if (!cleaned.startsWith("#")) {
-    return `# ${fallbackTitle}\n\n${cleaned}\n`;
-  }
+  const normalized = cleaned.startsWith("#")
+    ? cleaned
+    : `# ${fallbackTitle}\n\n${cleaned}`;
 
-  return cleaned + "\n";
+  return normalized.trimEnd() + "\n";
+}
+
+async function generateMarkdown(
+  prompt: string,
+  fallbackTitle: string
+): Promise<string> {
+  const response = await generateTextWithGemini(prompt);
+
+  return cleanMarkdown(
+    response,
+    fallbackTitle
+  );
 }
 
 export async function generateFileWikiWithLLM(
   fileAnalysis: FileAnalysis
 ): Promise<string> {
-  const prompt = buildFileWikiPrompt(fileAnalysis);
-  const markdown = await generateTextWithGemini(prompt);
-  return cleanMarkdown(markdown, fileAnalysis.file.path);
+  return generateMarkdown(
+    buildFileWikiPrompt(fileAnalysis),
+    fileAnalysis.file.path
+  );
 }
 
 export async function generateArchitectureWithLLM(
   analysis: RepositoryAnalysis
 ): Promise<string> {
-  const markdown = await generateTextWithGemini(
-    buildArchitectureWikiPrompt(analysis)
+  return generateMarkdown(
+    buildArchitectureWikiPrompt(analysis),
+    "Architecture"
   );
-
-  return cleanMarkdown(markdown, "Architecture");
 }
 
 export async function generateDataContractsWithLLM(
   analysis: RepositoryAnalysis
 ): Promise<string> {
-  const markdown = await generateTextWithGemini(
-    buildDataContractsWikiPrompt(analysis)
+  return generateMarkdown(
+    buildDataContractsWikiPrompt(analysis),
+    "Database Schema and Data Contracts"
   );
-
-  return cleanMarkdown(markdown, "Database Schema and Data Contracts");
 }
 
 export async function generateCodingRulesWithLLM(
   analysis: RepositoryAnalysis
 ): Promise<string> {
-  const markdown = await generateTextWithGemini(
-    buildCodingRulesWikiPrompt(analysis)
+  return generateMarkdown(
+    buildCodingRulesWikiPrompt(analysis),
+    "Coding Rules"
   );
-
-  return cleanMarkdown(markdown, "Coding Rules");
 }
 
 export async function generateReviewRulesWithLLM(
   analysis: RepositoryAnalysis
 ): Promise<string> {
-  const markdown = await generateTextWithGemini(
-    buildReviewRulesWikiPrompt(analysis)
+  return generateMarkdown(
+    buildReviewRulesWikiPrompt(analysis),
+    "Review Rules"
   );
-
-  return cleanMarkdown(markdown, "Review Rules");
 }
 
 export async function generateIndexWithLLM(
   analysis: RepositoryAnalysis,
   fileEntries: string[]
 ): Promise<string> {
-  const markdown = await generateTextWithGemini(
-    buildIndexWikiPrompt(analysis, fileEntries)
+  return generateMarkdown(
+    buildIndexWikiPrompt(
+      analysis,
+      fileEntries
+    ),
+    "CodeSentinal LLM Wiki"
   );
-
-  return cleanMarkdown(markdown, "CodeSentinal LLM Wiki");
 }

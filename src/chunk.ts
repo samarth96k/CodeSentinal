@@ -1,3 +1,4 @@
+import {CONFIG} from "./config/runtimeConfig.js";
 type AddedLine = {
     newLine: number;
     content: string;
@@ -7,6 +8,25 @@ type RemovedLine = {
     oldLine: number;
     content: string;
 };
+
+interface ParsedChange {
+  type: "added" | "removed" | "normal";
+  content: string;
+  oldLine: number | null;
+  newLine: number | null;
+}
+
+interface ParsedHunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  changes: ParsedChange[];
+}
+
+interface ParsedFile {
+  hunks: ParsedHunk[];
+}
 
 export type ReviewChunk = {
     filename: string;
@@ -21,12 +41,12 @@ export type ReviewChunk = {
     };
 };
 
-export function chunkingParsed(parsed: any, filename: string): ReviewChunk[] {
+export function chunkingParsed(parsed: ParsedFile[], filename: string): ReviewChunk[] {
     const reviewChunks: ReviewChunk[] = [];
-    const contextSize = 3;
+    const contextSize = CONFIG.review.chunkContextLines;;
 
-    parsed.forEach((file: any) => {
-        file.hunks.forEach((hunk: any) => {
+    parsed.forEach((file: ParsedFile) => {
+        file.hunks.forEach((hunk: ParsedHunk) => {
             const changes = hunk.changes;
             let i = 0;
             while (i < changes.length) {
@@ -51,28 +71,49 @@ export function chunkingParsed(parsed: any, filename: string): ReviewChunk[] {
                 );
                 const chunkChanges = changes.slice(startIndex, endIndex + 1);
 
+                if (
+                    chunkChanges.length >
+                    CONFIG.review.maxChunkLines
+                ) {
+                    console.log(
+                    `[CodeSentinal] Large chunk detected (${chunkChanges.length} lines).`
+                );
+                }
+
                 const addedLines: AddedLine[] = chunkChanges
-                    .filter((change: any) => change.type === "added")
-                    .map((change: any) => ({
-                        newLine: change.newLine,
+                    .filter(
+                        (change: ParsedChange) =>
+                            change.type === "added" &&
+                            change.newLine !== null
+                    )
+                    .map((change: ParsedChange) => ({
+                        newLine: change.newLine!,
                         content: change.content,
-                    }));
+                }));
 
                 const removedLines: RemovedLine[] = chunkChanges
-                    .filter((change: any) => change.type === "removed")
-                    .map((change: any) => ({
-                        oldLine: change.oldLine,
+                    .filter(
+                        (change: ParsedChange) =>
+                            change.type === "removed" &&
+                            change.oldLine !== null
+                    )
+                    .map((change: ParsedChange) => ({
+                        oldLine: change.oldLine!,
                         content: change.content,
-                    }));
+                }));
 
                 const newLines = chunkChanges
-                    .filter((change: any) => change.newLine !== null)
-                    .map((change: any) => change.newLine);
+                    .filter(
+                        (change: ParsedChange): change is ParsedChange & {
+                            newLine: number;
+                        } => change.newLine !== null
+                    )
+                    .map((change) => change.newLine);
 
-                const startLine = newLines[0];
-                const endLine = newLines[newLines.length - 1];
+                const startLine = newLines[0] ?? 0;
+                const endLine = newLines[newLines.length - 1] ?? 0;
                 const codeWithContext = chunkChanges
-                    .map((change: any) => {
+                    .map((change: ParsedChange) => {
                         if (change.type === "removed") {
                             const lineNo = String(change.oldLine ?? "").padStart(4, " ");
                             return `${lineNo} - ${change.content}`;

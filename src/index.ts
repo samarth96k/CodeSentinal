@@ -8,6 +8,7 @@ import {
   postComments,
   commitWikiMarkdownChangesToPullRequestBranch,
 } from "./github.js";
+import type { ReviewChunkWithWikiContext } from "./wiki/wikiReviewTypes.js";
 
 import { parsePatchLibrary } from "./diffParser.js";
 import { chunkingParsed, type ReviewChunk } from "./chunk.js";
@@ -15,6 +16,7 @@ import { reviewChunksWithLLM } from "./llm.js";
 import { preprocessParsedFiles } from "./prePrcessParsedFile.js";
 
 import { getWikiContextForChunks } from "./wiki/getWikiContextForChunks.js";
+import { getWikiUpdateContextForChunks } from "./wiki/getWikiUpdateContextForChunks.js";
 import { planWikiMarkdownUpdates } from "./wiki/wikiUpdatePlanner.js";
 import { buildWikiMarkdownFileChanges } from "./wiki/wikiPatchApplier.js";
 
@@ -161,22 +163,40 @@ async function runReviewMode(chunks: ReviewChunk[]) {
 
   const commitId = await getSHA(pullNumber);
 
-  const chunksWithWikiContext = shouldUseWikiContext(pullRequest)
-    ? await (async () => {
-        await ensureWikiAvailable();
-        return getWikiContextForChunks(chunks);
-      })()
-    : chunks;
+  let chunksWithWikiContext: ReviewChunkWithWikiContext[];
 
-  const result = await reviewChunksWithLLM(chunksWithWikiContext);
+  if (shouldUseWikiContext(pullRequest)) {
+    await ensureWikiAvailable();
+
+    chunksWithWikiContext =
+      await getWikiContextForChunks(chunks);
+  } else {
+    chunksWithWikiContext = chunks.map((chunk) => ({
+      ...chunk,
+      wikiContext: "",
+      wikiDocuments: [],
+    }));
+  }
+
+  const result =
+    await reviewChunksWithLLM(
+      chunksWithWikiContext
+    );
 
   if (result.reviews.length === 0) {
     console.log("No issues found by AI.");
     return;
   }
 
-  const postResult = await postComments(result, commitId, pullNumber);
-  console.log(JSON.stringify(postResult, null, 2));
+  const postResult = await postComments(
+    result,
+    commitId,
+    pullNumber
+  );
+
+  console.log(
+    JSON.stringify(postResult, null, 2)
+  );
 }
 
 async function runWikiUpdateMode(chunks: ReviewChunk[]) {
@@ -191,7 +211,8 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
 
   await ensureWikiAvailable();
 
-  const chunksWithWikiContext = await getWikiContextForChunks(chunks);
+  const chunksWithWikiContext =await getWikiUpdateContextForChunks(chunks);
+
   const wikiUpdatePlan = await planWikiMarkdownUpdates(chunksWithWikiContext);
 
   if (!wikiUpdatePlan.updatesRequired) {
@@ -229,17 +250,17 @@ if (mode === "review") {
   await runReviewMode(chunks);
 } else if (mode === "wiki-update") {
   await runWikiUpdateMode(chunks);
-} else if (mode === "all") {
-  const results = await Promise.allSettled([
-    runReviewMode(chunks),
-    runWikiUpdateMode(chunks),
-  ]);
+}else if (mode === "all") {
+  try {
+    await runReviewMode(chunks);
 
-  for (const result of results) {
-    if (result.status === "rejected") {
-      console.error("[CodeSentinal] One pipeline failed:");
-      console.error(result.reason);
-    }
+    await runWikiUpdateMode(chunks);
+  } catch (error) {
+    console.error(
+      "[CodeSentinal] Pipeline failed:"
+    );
+
+    console.error(error);
   }
 } else {
   throw new Error(`Invalid mode: ${mode}`);

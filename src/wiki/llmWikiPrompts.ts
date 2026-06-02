@@ -1,176 +1,297 @@
+import { CONFIG } from "../config/runtimeConfig.js";
 import type { FileAnalysis, RepositoryAnalysis } from "./wikiTypes.js";
 
-export function buildFileWikiPrompt(fileAnalysis: FileAnalysis): string {
-  const { file } = fileAnalysis;
+function safeJoin(
+  values: string[],
+  fallback = "None"
+): string {
+  return values.length > 0
+    ? values.join("\n")
+    : fallback;
+}
 
+function getImportantFiles(
+  analysis: RepositoryAnalysis
+) {
+  return analysis.fileAnalyses.slice(
+    0,
+    CONFIG.wiki.maxFilesPerBatch
+  );
+}
+
+export function buildFileWikiPrompt(
+  fileAnalysis: FileAnalysis
+): string {
   return `
-You are generating an LLM Wiki markdown page for a code repository.
+You are generating repository memory for CodeSentinal.
 
-Write a clean, technical, factual markdown document for this file.
+This markdown page will be used later during pull request review.
+
+Goal:
+Preserve repository knowledge that helps future reviews.
+
+Generate markdown with these sections only:
+
+# Purpose
+
+# Responsibilities
+
+# Architectural Role
+
+# Critical Review Context
+
+# Related Components
+
+# Repository Memory
 
 Rules:
+
 - Do not invent facts.
-- Use only the provided file content and extracted metadata.
-- Be concise but useful for future AI code review.
-- Explain what this file does, important functions, risks, and how PR changes should be reviewed.
-- Return markdown only.
+- Do not output source code.
+- Do not output imports.
+- Do not output exports.
+- Do not output symbols.
+- Use only supplied repository intelligence.
+- Optimize for future PR reviews.
 
-File path:
-${file.path}
+Repository Intelligence
 
-File kind:
-${file.kind}
+File:
+${fileAnalysis.file.path}
 
-Imports:
-${fileAnalysis.imports.join("\n") || "None"}
-
-Exports:
-${fileAnalysis.exports.join("\n") || "None"}
-
-Symbols:
-${fileAnalysis.symbols
-  .map((s) => `${s.name} - ${s.type} - ${s.exported ? "exported" : "internal"}`)
-  .join("\n") || "None"}
-
-Detected local dependencies:
-${fileAnalysis.dependsOn.join("\n") || "None"}
-
-Static purpose guess:
+Purpose:
 ${fileAnalysis.purpose}
 
-Risk notes:
-${fileAnalysis.risks.join("\n") || "None"}
+Architectural Role:
+${fileAnalysis.architecturalRole}
 
-File content:
-\`\`\`
-${file.content.slice(0, 9000)}
-\`\`\`
+Responsibilities:
+${safeJoin(
+  fileAnalysis.inferredResponsibilities
+)}
+
+Review Focus Areas:
+${safeJoin(
+  fileAnalysis.reviewFocusAreas
+)}
+
+Risks:
+${safeJoin(
+  fileAnalysis.risks
+)}
+
+Dependencies:
+${safeJoin(
+  fileAnalysis.dependsOn
+)}
+
+Return markdown only.
 `;
 }
 
-export function buildArchitectureWikiPrompt(analysis: RepositoryAnalysis): string {
-  return `
-You are generating architecture.md for an LLM Wiki.
+export function buildArchitectureWikiPrompt(
+  analysis: RepositoryAnalysis
+): string {
+  const importantFiles =
+    getImportantFiles(analysis);
 
-This wiki will be used by an AI pull request reviewer to understand the repository before reviewing code.
+  return `
+Generate architecture.md.
+
+Purpose:
+Provide repository architecture context for future PR reviews.
 
 Rules:
-- Do not invent external systems.
-- Use only the repository facts provided.
-- Explain architecture, major modules, workflows, and data flow.
-- Mention how this architecture should guide PR review.
+
+- Use only repository facts.
+- Do not invent systems.
+- Explain architecture.
+- Explain major modules.
+- Explain data flow.
+- Explain review implications.
 - Return markdown only.
 
-Detected tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Tech Stack:
+
+${safeJoin(
+  analysis.detectedTechStack
+)}
 
 Entrypoints:
-${analysis.entrypoints.join("\n") || "None"}
 
-Workflow files:
-${analysis.workflowFiles.join("\n") || "None"}
+${safeJoin(
+  analysis.entrypoints
+)}
 
-Config files:
-${analysis.configFiles.join("\n") || "None"}
+Workflow Files:
 
-Files and purposes:
-${analysis.fileAnalyses
-  .map((f) => `- ${f.file.path}: ${f.purpose}`)
-  .join("\n")}
-`;
-}
+${safeJoin(
+  analysis.workflowFiles
+)}
 
-export function buildDataContractsWikiPrompt(analysis: RepositoryAnalysis): string {
-  const contractFiles = analysis.fileAnalyses.filter((item) => {
-    const lower = item.file.path.toLowerCase();
-    return (
-      lower.includes("schema") ||
-      lower.includes("type") ||
-      lower.includes("interface") ||
-      item.symbols.some((s) => s.type === "type" || s.type === "interface")
-    );
-  });
+Configuration Files:
 
-  return `
-Generate database-schema.md for CodeSentinal's LLM Wiki.
+${safeJoin(
+  analysis.configFiles
+)}
 
-Important:
-This repo may not have a real database. In that case, treat this as "data contracts and internal object shapes".
+Major Components:
 
-Rules:
-- Do not invent schemas.
-- Focus on TypeScript types, interfaces, validation schemas, GitHub API payloads, LLM response shapes, and important object structures.
-- Explain what PR reviewers should check when these contracts change.
-- Return markdown only.
-
-Contract-like files:
-${contractFiles
+${importantFiles
   .map(
-    (item) => `
-File: ${item.file.path}
-Purpose: ${item.purpose}
-Symbols:
-${item.symbols.map((s) => `- ${s.name}: ${s.type}`).join("\n") || "None"}
+    (f) => `
+File: ${f.file.path}
+Role: ${f.architecturalRole}
+Purpose: ${f.purpose}
+Responsibilities:
+${safeJoin(
+  f.inferredResponsibilities
+)}
 `
   )
   .join("\n")}
 `;
 }
 
-export function buildCodingRulesWikiPrompt(analysis: RepositoryAnalysis): string {
+export function buildDataContractsWikiPrompt(
+  analysis: RepositoryAnalysis
+): string {
+  const contractFiles =
+    analysis.fileAnalyses.filter(
+      (item) => {
+        const lower =
+          item.file.path.toLowerCase();
+
+        return (
+          lower.includes("schema") ||
+          lower.includes("type") ||
+          lower.includes("interface") ||
+          item.symbols.some(
+            (s) =>
+              s.type === "type" ||
+              s.type === "interface"
+          )
+        );
+      }
+    );
+
   return `
-Generate coding-rules.md for this repository's LLM Wiki.
+Generate database-schema.md.
+
+Purpose:
+Describe important data contracts used by the repository.
 
 Rules:
-- Infer coding rules only from provided repository facts.
-- Include TypeScript, GitHub Actions, LLM, security, and maintainability rules if relevant.
-- These rules will guide an AI PR reviewer.
+
+- Do not invent schemas.
+- Focus on contracts.
+- Focus on interfaces.
+- Focus on validation structures.
+- Focus on payload shapes.
 - Return markdown only.
 
-Tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Contract Files:
 
-Config files:
-${analysis.configFiles.join("\n") || "None"}
+${contractFiles
+  .map(
+    (item) => `
+File:
+${item.file.path}
 
-Workflow files:
-${analysis.workflowFiles.join("\n") || "None"}
+Purpose:
+${item.purpose}
 
-Risk patterns found:
-${analysis.fileAnalyses
-  .flatMap((f) => f.risks.map((risk) => `${f.file.path}: ${risk}`))
-  .join("\n") || "None"}
+Role:
+${item.architecturalRole}
+`
+  )
+  .join("\n")}
 `;
 }
 
-export function buildReviewRulesWikiPrompt(analysis: RepositoryAnalysis): string {
+export function buildCodingRulesWikiPrompt(
+  analysis: RepositoryAnalysis
+): string {
   return `
-Generate review-rules.md for CodeSentinal.
+Generate coding-rules.md.
 
-This file defines how the AI reviewer should behave while reviewing pull requests.
+Purpose:
+Define repository-specific review expectations.
+
+Tech Stack:
+
+${safeJoin(
+  analysis.detectedTechStack
+)}
+
+Configuration Files:
+
+${safeJoin(
+  analysis.configFiles
+)}
+
+Workflow Files:
+
+${safeJoin(
+  analysis.workflowFiles
+)}
+
+Detected Risks:
+
+${safeJoin(
+  analysis.fileAnalyses.flatMap(
+    (f) => f.risks
+  )
+)}
+`;
+}
+
+export function buildReviewRulesWikiPrompt(
+  analysis: RepositoryAnalysis
+): string {
+  const reviewRelevantFiles =
+    analysis.fileAnalyses.filter(
+      (f) =>
+        [
+          "review",
+          "llm",
+          "github",
+          "octokit",
+          "diff",
+          "workflow",
+        ].some((keyword) =>
+          f.file.path
+            .toLowerCase()
+            .includes(keyword)
+        )
+    );
+
+  return `
+Generate review-rules.md.
+
+Purpose:
+Define how CodeSentinal should review pull requests.
 
 Rules:
-- Focus on meaningful review comments.
-- Avoid noisy style-only comments.
-- Include severity guidance.
-- Include GitHub Actions security rules.
-- Include LLM output validation rules.
-- Include when wiki updates should be suggested.
+
+- Focus on correctness.
+- Focus on security.
+- Focus on architecture.
+- Avoid style-only comments.
+- Avoid formatting comments.
 - Return markdown only.
 
-Repository facts:
-Tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Review-Relevant Components:
 
-Important files:
-${analysis.fileAnalyses
-  .filter((f) =>
-    ["review", "llm", "github", "octokit", "diff", "workflow"].some((k) =>
-      f.file.path.toLowerCase().includes(k)
-    )
+${reviewRelevantFiles
+  .map(
+    (f) => `
+${f.file.path}
+Role: ${f.architecturalRole}
+Purpose: ${f.purpose}
+`
   )
-  .map((f) => `- ${f.file.path}: ${f.purpose}`)
-  .join("\n") || "None"}
+  .join("\n")}
 `;
 }
 
@@ -179,26 +300,40 @@ export function buildIndexWikiPrompt(
   fileEntries: string[]
 ): string {
   return `
-Generate index.md for CodeSentinal's LLM Wiki.
+Generate index.md.
 
-Rules:
-- This is the entry point for the wiki.
-- Explain what this wiki is.
-- Link to core wiki pages.
-- Include file-by-file wiki entries.
-- Return markdown only.
+Purpose:
+Serve as the entrypoint for the CodeSentinal wiki.
 
-Stats:
-Total files: ${analysis.files.length}
-Source files: ${analysis.files.filter((f) => f.kind === "source").length}
-Workflow files: ${analysis.workflowFiles.length}
-Config files: ${analysis.configFiles.length}
-Test files: ${analysis.testFiles.length}
+Repository Statistics
 
-Tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Total Files:
+${analysis.files.length}
 
-File wiki entries:
-${fileEntries.join("\n")}
+Source Files:
+${analysis.files.filter(
+  (f) => f.kind === "source"
+).length}
+
+Workflow Files:
+${analysis.workflowFiles.length}
+
+Config Files:
+${analysis.configFiles.length}
+
+Test Files:
+${analysis.testFiles.length}
+
+Tech Stack:
+
+${safeJoin(
+  analysis.detectedTechStack
+)}
+
+File Wiki Pages:
+
+${safeJoin(fileEntries)}
+
+Return markdown only.
 `;
 }
