@@ -80408,6 +80408,8 @@ async function getWikiUpdateContextForChunks(chunks) {
 /* harmony export */ });
 /* unused harmony exports loadRepositoryMemories, scoreMemory */
 /* harmony import */ var _utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(8560);
+/* harmony import */ var _utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(180);
+
 
 const REPOSITORY_MEMORY_PATH = ".codesentinal/wiki/repository-memory.md";
 function normalize(value) {
@@ -80501,6 +80503,7 @@ function scoreMemory(chunk, memory) {
 }
 async function getRelevantMemories(chunk, limit = 5) {
     const memories = await loadRepositoryMemories();
+    (0,_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_1__/* .debugJson */ .q)("RETRIEVED_MEMORIES", memories);
     return memories
         .map((memory) => ({
         ...memory,

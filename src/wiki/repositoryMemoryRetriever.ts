@@ -6,7 +6,7 @@ export type RepositoryMemory = {
   reason: string;
   knowledge: string;
 };
-
+import { debugJson } from "./utils/debugLogger.js";
 export type ScoredRepositoryMemory =
   RepositoryMemory & {
     score: number;
@@ -212,7 +212,10 @@ export async function getRelevantMemories(
 > {
   const memories =
     await loadRepositoryMemories();
-
+    debugJson(
+  "RETRIEVED_MEMORIES",
+  memories
+);
   return memories
     .map((memory) => ({
       ...memory,
