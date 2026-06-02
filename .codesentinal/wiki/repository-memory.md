@@ -8,6 +8,21 @@ Document major architectural decisions.
 
 ---
 
+
+### Memory ID: 32f86d148590
+
+Created At: 2026-06-02T10:22:42.568Z
+
+**Reason**
+
+Evolution of the wiki retrieval pipeline.
+
+**Knowledge**
+
+Wiki context retrieval has transitioned to a multi-stage assembly process: Global documentation is now injected per-chunk, alongside source-mapped file documentation and dynamic memory retrieval. Future changes to chunk context structure must account for the specialized 'ReviewChunkWithWikiContextWIKIUPDATE' type.
+
+---
+
 ## Known Constraints
 
 Document repository limitations.
@@ -29,18 +44,3 @@ Document recurring review findings and lessons.
 ## Integration Knowledge
 
 Document external integrations, workflows, and cross-system behavior.
-
-
-### Memory ID: 82e44c1cdc55
-
-Created At: 2026-06-02T10:22:42.567Z
-
-**Reason**
-
-Added environment-driven maintenance tools for the wiki.
-
-**Knowledge**
-
-The wiki validation system supports a manual override: set CODESENTINAL_FORCE_WIKI_REPAIR=true in the environment to bypass automated checks and trigger a full wiki scan/repair.
-
----
