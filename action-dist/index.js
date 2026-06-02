@@ -56949,11 +56949,11 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(7422);
 /* harmony import */ var _wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(4351);
 /* harmony import */ var _github_js__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(6784);
-/* harmony import */ var _wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_12__ = __nccwpck_require__(180);
+/* harmony import */ var _wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__ = __nccwpck_require__(180);
 /* harmony import */ var _diffParser_js__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(462);
 /* harmony import */ var _chunk_js__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(8829);
 /* harmony import */ var _llm_js__WEBPACK_IMPORTED_MODULE_7__ = __nccwpck_require__(9411);
-/* harmony import */ var _prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_13__ = __nccwpck_require__(8110);
+/* harmony import */ var _prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_12__ = __nccwpck_require__(8110);
 /* harmony import */ var _wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_8__ = __nccwpck_require__(1965);
 /* harmony import */ var _wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__ = __nccwpck_require__(6844);
 /* harmony import */ var _wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_10__ = __nccwpck_require__(7749);
@@ -57050,19 +57050,19 @@ function shouldUseWikiContext(pr) {
 async function buildReviewChunks() {
     const files = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getPullRequestFiles */ .a6)(pullNumber);
     const allChunks = [];
-    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_12__/* .debugJson */ .q)("REVIEW_CHUNKS", chunks);
     for (const file of files) {
         if (!file.patch) {
             console.log("SKIPPED: No patch found for", file.filename);
             continue;
         }
         const parsed = (0,_diffParser_js__WEBPACK_IMPORTED_MODULE_5__/* .parsePatchLibrary */ .l6)(file.patch);
-        const processedParsed = (0,_prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_13__/* .preprocessParsedFiles */ .x)(parsed, file.filename);
+        const processedParsed = (0,_prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_12__/* .preprocessParsedFiles */ .x)(parsed, file.filename);
         if (processedParsed.length === 0) {
             console.log("SKIPPED:", file.filename);
             continue;
         }
         const chunks = (0,_chunk_js__WEBPACK_IMPORTED_MODULE_6__/* .chunkingParsed */ .n)(processedParsed, file.filename);
+        (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("REVIEW_CHUNKS", chunks);
         allChunks.push(...chunks);
     }
     return allChunks;

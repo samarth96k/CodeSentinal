@@ -137,10 +137,7 @@ function shouldUseWikiContext(pr: typeof pullRequest): boolean {
 async function buildReviewChunks(): Promise<ReviewChunk[]> {
   const files = await getPullRequestFiles(pullNumber);
   const allChunks: ReviewChunk[] = [];
-  debugJson(
-  "REVIEW_CHUNKS",
-  chunks
-);
+
   for (const file of files) {
     if (!file.patch) {
       console.log("SKIPPED: No patch found for", file.filename);
@@ -156,6 +153,10 @@ async function buildReviewChunks(): Promise<ReviewChunk[]> {
     }
 
     const chunks = chunkingParsed(processedParsed, file.filename);
+      debugJson(
+  "REVIEW_CHUNKS",
+  chunks
+);
     allChunks.push(...chunks);
   }
 
