@@ -1,84 +1,92 @@
-# Database Schema & Data Contracts
+# Database Schema / Data Contracts
 
-This document outlines the core data contracts and interfaces used across the repository. These structures define the payload shapes for code analysis, diff processing, and the LLM-driven Wiki generation system.
+This document outlines the core data structures and interfaces used throughout the repository. These contracts define the shape of pull request data, code chunks, and repository knowledge objects.
 
-## 1. Diff and Change Processing Contracts
-Defined in `src/chunk.ts` and `src/types/parse-diff.d.ts`.
+## 1. Diff Processing Contracts (`src/chunk.ts`, `src/types/parse-diff.d.ts`)
+
+These structures define the representation of code changes parsed from Git diffs.
 
 ### `ParsedChange`
-Represents a specific modification within a file diff.
+Represents an individual line change within a file.
 * `type`: `'add' | 'del' | 'normal'`
-* `ln`: Line number in the new file.
-* `ln1`: Line number in the old file.
-* `content`: The raw string content of the line.
+* `ln`: Line number (for normal lines)
+* `ln1`: Line number in the old file (for deletions)
+* `ln2`: Line number in the new file (for additions)
+* `content`: The raw text content of the line
 
 ### `ParsedFile`
-The structure resulting from parsing a git diff.
-* `chunks`: Array of `Chunk` objects.
-* `deleted`: Boolean flag.
-* `added`: Boolean flag.
-* `from`: Original file path.
-* `to`: New file path.
+Represents a file affected by a pull request.
+* `chunks`: Array of `Chunk` objects (containing groups of changes)
+* `deleted`: Boolean flag if file was removed
+* `new`: Boolean flag if file is new
+* `from`: Path of the source file
+* `to`: Path of the destination file
 
 ### `AddedLine`
-* `line`: The string content of the added line.
-* `originalLineNumber`: Integer representation of the location.
+* `line`: The string content of the added line
+* `originalLineNumber`: Integer, position in the original file
+* `newLineNumber`: Integer, position in the resulting file
+
+## 2. Chunking Structures (`src/chunk.ts`)
+
+### `chunkingParsed`
+An interface representing the segmentation of code for LLM consumption.
+* `lines`: Array of `AddedLine`
+* `originalLineNumber`: Integer
+* `fileName`: String
+* `fileContent`: String (the context or slice of the file)
+
+## 3. Wiki & Repository Knowledge Contracts (`src/wiki/`)
+
+These contracts manage the persisted knowledge about the repository structure and impact analysis.
+
+### `WikiManifest` (`src/wiki/wikiManifest.ts`)
+Defines the structure for tracking knowledge files within the repository.
+* `version`: Schema version
+* `files`: Mapping of file paths to metadata (e.g., last analyzed, summary, dependencies)
+
+### `WikiImpact` (`src/wiki/wikiImpactAnalyzer.ts`)
+Represents the analysis of how changes ripple through the codebase.
+* `affectedModules`: Array of strings
+* `riskLevel`: `'low' | 'medium' | 'high'`
+* `reasoning`: String explanation
+
+### `WikiEntry` (`src/wiki/wikiTypes.ts`)
+The standard unit of repository knowledge.
+* `id`: Unique identifier
+* `content`: Textual summary or documentation
+* `lastUpdated`: ISO timestamp
+* `relatedFiles`: Array of file paths
+* `tags`: Array of strings
+
+## 4. LLM Integration Payloads (`src/llm.ts`)
+
+### `ReviewContext`
+Payload constructed to communicate the state of the pull request to the AI.
+* `diff`: `ParsedFile[]`
+* `chunks`: `Chunk[]`
+* `repositoryContext`: `WikiEntry[]` (retrieved from the wiki system)
+* `actionInputs`: Configuration mapping for runtime behavior (e.g., `model`, `temperature`, `language`)
+
+## 5. System Configuration (`src/index.ts`)
+
+### `RuntimeConfig`
+Configures the execution environment based on action inputs.
+* `mode`: `'review' | 'wiki' | 'analysis'`
+* `options`: Object containing sensitivity, exclude patterns, and target branch information.
 
 ---
 
-## 2. Chunking Logic
-Defined in `src/chunk.ts`.
+## Repository Memory Entry
 
-### `ChunkingParsed`
-A data structure used to segment code for LLM processing.
-* `file`: `ParsedFile` metadata.
-* `lines`: Array of `AddedLine` objects.
-* `startLine`: Integer representing the beginning of the context window.
-* `endLine`: Integer representing the end of the context window.
+Memory ID: 2fc75c0168a8
 
----
+Created At: 2026-06-02T10:22:42.568Z
 
-## 3. Wiki & Repository Knowledge Layer
-Defined in `src/wiki/wikiTypes.ts`, `src/wiki/wikiManifest.ts`, and `src/wiki/wikiGenerationSchema.ts`.
+### Reason
 
-### `WikiManifest`
-The schema governing the structure of the generated repository knowledge base.
-* `version`: Semantic version string.
-* `modules`: Mapping of module names to `WikiModule` definitions.
-* `lastUpdated`: ISO 8601 timestamp.
+Contract change for review data structures.
 
-### `WikiModule`
-* `id`: Unique identifier.
-* `path`: File path within the documentation structure.
-* `dependencies`: Array of linked documentation modules.
-* `summary`: LLM-generated concise description.
+### Knowledge
 
-### `WikiImpactAnalysis`
-Defined in `src/wiki/wikiImpactAnalyzer.ts`.
-* `affectedModules`: Array of modules impacted by a specific code change.
-* `severity`: Enum/Scale (e.g., `'low' | 'medium' | 'high'`).
-* `recommendation`: Contextual advice generated by the LLM.
-
----
-
-## 4. Runtime Configuration
-Defined in `src/index.ts`.
-
-### `ActionInputs`
-The payload shape required to configure the application runtime.
-* `githubToken`: Authorization token.
-* `apiModel`: The identifier for the LLM provider (e.g., `gpt-4o`).
-* `runMode`: Enum determining execution flow (`review`, `wiki`, `impact`).
-* `context`: Repository context object containing pull request identifiers and branch metadata.
-
----
-
-## 5. LLM Integration Payload
-Defined in `src/llm.ts`.
-
-### `LLMPayload`
-The structure transmitted to the language model interface.
-* `systemPrompt`: Instructions for the model's persona and logic.
-* `userPrompt`: The specific code diff or documentation context.
-* `schema`: (Optional) The JSON schema enforcing the output structure (e.g., for Wiki generation).
-* `temperature`: Floating point value for response variance control.
+The interface 'ReviewChunkWithWikiContextWIKIUPDATE' is now the primary contract for wiki-update operations. Ensure that any expansion of chunk data in the review pipeline maintains backward compatibility with this type.
