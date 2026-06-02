@@ -1,10 +1,11 @@
 import crypto from "crypto";
-
 import { readTextFile } from "./utils/fileHelpers.js";
-
-import { CONFIG } from "../config/runtimeConfig.js";
-
 import { routeWikiUpdate } from "./wikiRouting.js";
+import { debugJson } from "./utils/debugLogger.js";
+import {
+  insertIntoRepositoryMemory,
+  trimRepositoryMemorySection,
+} from "./repositoryMemoryWriter.js";
 
 import type {
   WikiMarkdownFileChange,
@@ -70,34 +71,6 @@ function extractExistingMemoryIds(
   return ids;
 }
 
-function trimRepositoryMemory(
-  markdown: string
-): string {
-  const sections =
-    markdown.split("\n---\n");
-
-  const limit =
-    CONFIG.wiki.maxRepositoryMemoryEntries;
-
-  if (sections.length <= limit) {
-    return markdown;
-  }
-
-  const preservedHeader =
-    sections[0];
-
-  const memoryEntries =
-    sections.slice(1);
-
-  const trimmedEntries =
-    memoryEntries.slice(-limit);
-
-  return [
-    preservedHeader,
-    ...trimmedEntries,
-  ].join("\n---\n");
-}
-
 export async function buildWikiMarkdownFileChanges(
   plan: WikiUpdatePlan
 ): Promise<WikiMarkdownFileChange[]> {
@@ -160,22 +133,46 @@ export async function buildWikiMarkdownFileChanges(
 
       continue;
     }
+let finalContent: string;
 
-    const appendBlock =
-      buildAppendBlock(
-        update.reason,
-        update.contentToAppend
-      );
+if (
+  update.target ===
+    "repository-memory" &&
+  update.memorySection
+) {
+  finalContent =
+    insertIntoRepositoryMemory(
+      existingContent,
+      update.memorySection,
+      update.reason,
+      update.contentToAppend
+    );
 
-    const mergedContent =
-      existingContent.trimEnd() +
-      appendBlock;
+  finalContent =
+    trimRepositoryMemorySection(
+      finalContent,
+      update.memorySection
+    );
+} else {
+  const appendBlock =
+    buildAppendBlock(
+      update.reason,
+      update.contentToAppend
+    );
 
-    const finalContent =
-      trimRepositoryMemory(
-        mergedContent
-      );
+  finalContent =
+    existingContent.trimEnd() +
+    appendBlock;
+}
+debugJson(
+  "WIKI_FILE_CHANGE",
+  {
+    path:
+      routedUpdate.wikiFilePath,
 
+    update,
+  }
+);
     changes.push({
       path:
         routedUpdate.wikiFilePath,

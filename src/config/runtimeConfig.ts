@@ -58,6 +58,18 @@ export const CONFIG = {
       process.env.CODE_SENTINAL_MIN_WIKI_UPDATE_CHARS ??
       "40"
     ),
+
+    maxWikiDocsForUpdatePlanner: Number(
+      process.env.CODE_SENTINAL_MAX_WIKI_DOCS_FOR_UPDATE_PLANNER ?? "5"
+    ),
+
+    maxWikiUpdateContextChars: Number(
+      process.env.CODE_SENTINAL_MAX_WIKI_UPDATE_CONTEXT_CHARS ?? "12000"
+    ),
+
+    minMemoryConfidence: Number(
+      process.env.CODE_SENTINAL_MIN_MEMORY_CONFIDENCE ?? "0.75"
+    ),
   },
 
   review: {
@@ -78,6 +90,12 @@ export const CONFIG = {
     maxChunkLines: Number(
         process.env.CODE_SENTINAL_MAX_CHUNK_LINES ?? "80"
     ),
+    maxRepositoryMemoriesPerChunk:
+  Number(
+    process.env
+      .CODE_SENTINAL_MAX_REPOSITORY_MEMORIES_PER_CHUNK
+      ?? "5"
+  ),
   },
 
   github: {
@@ -86,4 +104,9 @@ export const CONFIG = {
       "50"
     ),
   },
+  debug: {
+  enabled:
+    process.env.CODE_SENTINAL_DEBUG ===
+    "true",
+},
 } as const;

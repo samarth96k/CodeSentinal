@@ -51344,9 +51344,12 @@ exports.USER_AGENT = USER_AGENT;
 /* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
 /* harmony export */   n: () => (/* binding */ chunkingParsed)
 /* harmony export */ });
+/* harmony import */ var _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(989);
+
 function chunkingParsed(parsed, filename) {
     const reviewChunks = [];
-    const contextSize = 3;
+    const contextSize = _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_0__/* .CONFIG */ .P.review.chunkContextLines;
+    ;
     parsed.forEach((file) => {
         file.hunks.forEach((hunk) => {
             const changes = hunk.changes;
@@ -51365,14 +51368,20 @@ function chunkingParsed(parsed, filename) {
                 const startIndex = Math.max(0, addedStartIndex - contextSize);
                 const endIndex = Math.min(changes.length - 1, addedEndIndex + contextSize);
                 const chunkChanges = changes.slice(startIndex, endIndex + 1);
+                if (chunkChanges.length >
+                    _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_0__/* .CONFIG */ .P.review.maxChunkLines) {
+                    console.log(`[CodeSentinal] Large chunk detected (${chunkChanges.length} lines).`);
+                }
                 const addedLines = chunkChanges
-                    .filter((change) => change.type === "added")
+                    .filter((change) => change.type === "added" &&
+                    change.newLine !== null)
                     .map((change) => ({
                     newLine: change.newLine,
                     content: change.content,
                 }));
                 const removedLines = chunkChanges
-                    .filter((change) => change.type === "removed")
+                    .filter((change) => change.type === "removed" &&
+                    change.oldLine !== null)
                     .map((change) => ({
                     oldLine: change.oldLine,
                     content: change.content,
@@ -51380,8 +51389,8 @@ function chunkingParsed(parsed, filename) {
                 const newLines = chunkChanges
                     .filter((change) => change.newLine !== null)
                     .map((change) => change.newLine);
-                const startLine = newLines[0];
-                const endLine = newLines[newLines.length - 1];
+                const startLine = newLines[0] ?? 0;
+                const endLine = newLines[newLines.length - 1] ?? 0;
                 const codeWithContext = chunkChanges
                     .map((change) => {
                     if (change.type === "removed") {
@@ -51434,6 +51443,67 @@ function getLanguageFromFilename(filename) {
         return "rust";
     return "unknown";
 }
+
+
+/***/ }),
+
+/***/ 989:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
+
+/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
+/* harmony export */   P: () => (/* binding */ CONFIG)
+/* harmony export */ });
+const CONFIG = {
+    llm: {
+        reviewModel: process.env.CODE_SENTINAL_REVIEW_MODEL ??
+            "gemini-3.1-flash-lite",
+        wikiModel: process.env.CODE_SENTINAL_WIKI_MODEL ??
+            "gemini-3.1-flash-lite",
+        retryDelayMs: Number(process.env.CODE_SENTINAL_LLM_RETRY_DELAY_MS ??
+            "5000"),
+        maxRetries: Number(process.env.CODE_SENTINAL_LLM_MAX_RETRIES ??
+            "3"),
+        requestTimeoutMs: Number(process.env.CODE_SENTINAL_LLM_TIMEOUT_MS ?? "120000"),
+    },
+    wiki: {
+        maxFileUpdatesPerRun: Number(process.env.CODE_SENTINAL_MAX_WIKI_FILES ??
+            "20"),
+        maxFilesPerBatch: Number(process.env.CODE_SENTINAL_MAX_WIKI_FILES_PER_BATCH ??
+            "20"),
+        maxContextDocumentChars: Number(process.env.CODE_SENTINAL_MAX_WIKI_CONTEXT_DOC_CHARS ??
+            "1200"),
+        maxRepositoryMemoryEntries: Number(process.env.CODE_SENTINAL_MAX_REPOSITORY_MEMORY_ENTRIES ??
+            "10"),
+        maxFileContentPreviewChars: Number(process.env.CODE_SENTINAL_MAX_FILE_CONTENT_PREVIEW_CHARS ??
+            "3000"),
+        maxGeneratedMarkdownChars: Number(process.env.CODE_SENTINAL_MAX_GENERATED_MARKDOWN_CHARS ??
+            "12000"),
+        minWikiUpdateChars: Number(process.env.CODE_SENTINAL_MIN_WIKI_UPDATE_CHARS ??
+            "40"),
+        maxWikiDocsForUpdatePlanner: Number(process.env.CODE_SENTINAL_MAX_WIKI_DOCS_FOR_UPDATE_PLANNER ?? "5"),
+        maxWikiUpdateContextChars: Number(process.env.CODE_SENTINAL_MAX_WIKI_UPDATE_CONTEXT_CHARS ?? "12000"),
+        minMemoryConfidence: Number(process.env.CODE_SENTINAL_MIN_MEMORY_CONFIDENCE ?? "0.75"),
+    },
+    review: {
+        maxContextCharsPerChunk: Number(process.env.CODE_SENTINAL_MAX_CONTEXT_CHARS_PER_CHUNK ??
+            "12000"),
+        maxWikiDocumentChars: Number(process.env.CODE_SENTINAL_MAX_DOC_CHARS ??
+            "3500"),
+        chunkContextLines: Number(process.env.CODE_SENTINAL_CHUNK_CONTEXT_LINES ?? "3"),
+        maxChunkLines: Number(process.env.CODE_SENTINAL_MAX_CHUNK_LINES ?? "80"),
+        maxRepositoryMemoriesPerChunk: Number(process.env
+            .CODE_SENTINAL_MAX_REPOSITORY_MEMORIES_PER_CHUNK
+            ?? "5"),
+    },
+    github: {
+        maxInlineComments: Number(process.env.CODE_SENTINAL_MAX_INLINE_COMMENTS ??
+            "50"),
+    },
+    debug: {
+        enabled: process.env.CODE_SENTINAL_DEBUG ===
+            "true",
+    },
+};
 
 
 /***/ }),
@@ -51588,7 +51658,7 @@ function parsePatchLibrary(diff) {
 
 /***/ }),
 
-/***/ 8734:
+/***/ 6784:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 
@@ -56626,14 +56696,62 @@ var dist_bundle_OAuthApp = OAuthApp.defaults({ Octokit });
 
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js + 3 modules
 var github = __nccwpck_require__(722);
+;// CONCATENATED MODULE: ./dist/githubRetry.js
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function isRetryableGitHubError(error) {
+    const status = error?.status ??
+        error?.response?.status;
+    const message = String(error?.message ?? "").toLowerCase();
+    return (status === 429 ||
+        status === 500 ||
+        status === 502 ||
+        status === 503 ||
+        status === 504 ||
+        message.includes("secondary rate limit") ||
+        message.includes("rate limit") ||
+        message.includes("timeout"));
+}
+async function executeGitHubWithRetry(operation, maxRetries = 3, baseDelayMs = 2000) {
+    let attempt = 0;
+    while (true) {
+        try {
+            return await operation();
+        }
+        catch (error) {
+            attempt++;
+            if (!isRetryableGitHubError(error)) {
+                throw error;
+            }
+            if (attempt >= maxRetries) {
+                throw error;
+            }
+            const delay = baseDelayMs *
+                Math.pow(2, attempt - 1);
+            console.log(`[CodeSentinal GitHub] Retry ${attempt}/${maxRetries} after ${delay}ms`);
+            await sleep(delay);
+        }
+    }
+}
+
+// EXTERNAL MODULE: ./dist/wiki/utils/debugLogger.js
+var debugLogger = __nccwpck_require__(180);
 ;// CONCATENATED MODULE: ./dist/github.js
 
 
 
+
 main.config();
+
 const owner = github/* context */._.repo.owner;
 const repo = github/* context */._.repo.repo;
 let octokitClient = null;
+function assertValidPullNumber(pullNumber) {
+    if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
+        throw new Error(`Invalid pull request number: ${pullNumber}`);
+    }
+}
 function getOctokitClient() {
     if (octokitClient)
         return octokitClient;
@@ -56641,9 +56759,7 @@ function getOctokitClient() {
     if (!token) {
         throw new Error("GITHUB_TOKEN is missing. Pass github_token input or set GITHUB_TOKEN env.");
     }
-    octokitClient = new Octokit({
-        auth: token,
-    });
+    octokitClient = new Octokit({ auth: token });
     return octokitClient;
 }
 async function getPullRequests() {
@@ -56651,20 +56767,17 @@ async function getPullRequests() {
         owner,
         repo,
         per_page: 5,
-        headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers: { "X-GitHub-Api-Version": "2022-11-28" },
     });
     return prs.data;
 }
 async function getPullRequestFiles(pullNumber) {
+    assertValidPullNumber(pullNumber);
     const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", {
         owner,
         repo,
         pull_number: pullNumber,
-        headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers: { "X-GitHub-Api-Version": "2022-11-28" },
     });
     return response.data.map((file) => ({
         filename: file.filename,
@@ -56676,24 +56789,21 @@ async function getPullRequestFiles(pullNumber) {
     }));
 }
 async function getSHA(pullNumber) {
+    assertValidPullNumber(pullNumber);
     const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
         owner,
         repo,
         pull_number: pullNumber,
-        headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers: { "X-GitHub-Api-Version": "2022-11-28" },
     });
     return response.data.head.sha;
 }
 async function postComments(result, commit_id, pullNumber) {
+    assertValidPullNumber(pullNumber);
     const responses = [];
     for (const review of result.reviews) {
         try {
-            console.log("\n====================================");
-            console.log("POSTING COMMENT:");
-            console.log(review.githubComment);
-            const res = await getOctokitClient().request("POST /repos/{owner}/{repo}/pulls/{pull_number}/comments", {
+            const res = await executeGitHubWithRetry(() => getOctokitClient().request("POST /repos/{owner}/{repo}/pulls/{pull_number}/comments", {
                 owner,
                 repo,
                 pull_number: pullNumber,
@@ -56702,9 +56812,8 @@ async function postComments(result, commit_id, pullNumber) {
                 headers: {
                     "X-GitHub-Api-Version": "2022-11-28",
                 },
-            });
-            console.log("SUCCESS");
-            console.log("COMMENT ID:", res.data.id);
+            }));
+            (0,debugLogger/* debugJson */.q)("GITHUB_COMMENT", review.githubComment);
             responses.push({
                 success: true,
                 path: review.githubComment.path,
@@ -56713,8 +56822,6 @@ async function postComments(result, commit_id, pullNumber) {
             });
         }
         catch (error) {
-            console.log("FAILED");
-            console.log(error);
             responses.push({
                 success: false,
                 path: review.githubComment.path,
@@ -56730,13 +56837,12 @@ async function postComments(result, commit_id, pullNumber) {
     return responses;
 }
 async function getPullRequestDetails(pullNumber) {
+    assertValidPullNumber(pullNumber);
     const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
         owner,
         repo,
         pull_number: pullNumber,
-        headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers: { "X-GitHub-Api-Version": "2022-11-28" },
     });
     return response.data;
 }
@@ -56747,7 +56853,7 @@ function assertSafeWikiMarkdownChange(file) {
 }
 async function getExistingFileSha(params) {
     try {
-        const response = await getOctokitClient().request("GET /repos/{owner}/{repo}/contents/{path}", {
+        const response = await executeGitHubWithRetry(() => getOctokitClient().request("GET /repos/{owner}/{repo}/contents/{path}", {
             owner: params.owner,
             repo: params.repo,
             path: params.path,
@@ -56755,7 +56861,7 @@ async function getExistingFileSha(params) {
             headers: {
                 "X-GitHub-Api-Version": "2022-11-28",
             },
-        });
+        }));
         if (Array.isArray(response.data))
             return undefined;
         return "sha" in response.data ? response.data.sha : undefined;
@@ -56768,9 +56874,9 @@ async function getExistingFileSha(params) {
 }
 async function commitWikiMarkdownChangesToPullRequestBranch(params) {
     const { pullNumber, changes, commitMessage = "docs: update CodeSentinal LLM wiki", } = params;
+    assertValidPullNumber(pullNumber);
     const safeChanges = changes.filter(assertSafeWikiMarkdownChange);
     if (safeChanges.length === 0) {
-        console.log("[CodeSentinal Wiki] No safe wiki markdown changes to commit.");
         return {
             committed: false,
             reason: "No safe wiki markdown changes.",
@@ -56779,7 +56885,6 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
     const pr = await getPullRequestDetails(pullNumber);
     const isSameRepoPR = pr.head.repo?.full_name === pr.base.repo?.full_name;
     if (!isSameRepoPR) {
-        console.log("[CodeSentinal Wiki] Fork PR detected. Direct wiki commit skipped.");
         return {
             committed: false,
             reason: "Fork PR detected. Direct commits are disabled for safety.",
@@ -56795,7 +56900,7 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
                 path: change.path,
                 ref: branch,
             });
-            const response = await getOctokitClient().request("PUT /repos/{owner}/{repo}/contents/{path}", {
+            const response = await executeGitHubWithRetry(() => getOctokitClient().request("PUT /repos/{owner}/{repo}/contents/{path}", {
                 owner,
                 repo,
                 path: change.path,
@@ -56806,7 +56911,7 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
                 headers: {
                     "X-GitHub-Api-Version": "2022-11-28",
                 },
-            });
+            }));
             results.push({
                 path: change.path,
                 success: true,
@@ -56842,15 +56947,19 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 /* harmony import */ var dotenv__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(8889);
 /* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(722);
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(7422);
-/* harmony import */ var _wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(4561);
-/* harmony import */ var _github_js__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(8734);
+/* harmony import */ var _wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(4351);
+/* harmony import */ var _github_js__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(6784);
+/* harmony import */ var _wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_12__ = __nccwpck_require__(180);
 /* harmony import */ var _diffParser_js__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(462);
-/* harmony import */ var _chunk_js__WEBPACK_IMPORTED_MODULE_11__ = __nccwpck_require__(8829);
-/* harmony import */ var _llm_js__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(2603);
-/* harmony import */ var _prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_10__ = __nccwpck_require__(8110);
-/* harmony import */ var _wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_7__ = __nccwpck_require__(1965);
-/* harmony import */ var _wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_8__ = __nccwpck_require__(7749);
-/* harmony import */ var _wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_9__ = __nccwpck_require__(9636);
+/* harmony import */ var _chunk_js__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(8829);
+/* harmony import */ var _llm_js__WEBPACK_IMPORTED_MODULE_7__ = __nccwpck_require__(9411);
+/* harmony import */ var _prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_13__ = __nccwpck_require__(8110);
+/* harmony import */ var _wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_8__ = __nccwpck_require__(1965);
+/* harmony import */ var _wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__ = __nccwpck_require__(6844);
+/* harmony import */ var _wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_10__ = __nccwpck_require__(7749);
+/* harmony import */ var _wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_11__ = __nccwpck_require__(9626);
+
+
 
 
 
@@ -56941,18 +57050,19 @@ function shouldUseWikiContext(pr) {
 async function buildReviewChunks() {
     const files = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getPullRequestFiles */ .a6)(pullNumber);
     const allChunks = [];
+    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_12__/* .debugJson */ .q)("REVIEW_CHUNKS", chunks);
     for (const file of files) {
         if (!file.patch) {
             console.log("SKIPPED: No patch found for", file.filename);
             continue;
         }
         const parsed = (0,_diffParser_js__WEBPACK_IMPORTED_MODULE_5__/* .parsePatchLibrary */ .l6)(file.patch);
-        const processedParsed = (0,_prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_10__/* .preprocessParsedFiles */ .x)(parsed, file.filename);
+        const processedParsed = (0,_prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_13__/* .preprocessParsedFiles */ .x)(parsed, file.filename);
         if (processedParsed.length === 0) {
             console.log("SKIPPED:", file.filename);
             continue;
         }
-        const chunks = (0,_chunk_js__WEBPACK_IMPORTED_MODULE_11__/* .chunkingParsed */ .n)(processedParsed, file.filename);
+        const chunks = (0,_chunk_js__WEBPACK_IMPORTED_MODULE_6__/* .chunkingParsed */ .n)(processedParsed, file.filename);
         allChunks.push(...chunks);
     }
     return allChunks;
@@ -56960,13 +57070,20 @@ async function buildReviewChunks() {
 async function runReviewMode(chunks) {
     console.log("[CodeSentinal] Running review mode...");
     const commitId = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getSHA */ .TK)(pullNumber);
-    const chunksWithWikiContext = shouldUseWikiContext(pullRequest)
-        ? await (async () => {
-            await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
-            return (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_7__/* .getWikiContextForChunks */ .T)(chunks);
-        })()
-        : chunks;
-    const result = await (0,_llm_js__WEBPACK_IMPORTED_MODULE_6__/* .reviewChunksWithLLM */ .W)(chunksWithWikiContext);
+    let chunksWithWikiContext;
+    if (shouldUseWikiContext(pullRequest)) {
+        await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
+        chunksWithWikiContext =
+            await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_8__/* .getWikiContextForChunks */ .T)(chunks);
+    }
+    else {
+        chunksWithWikiContext = chunks.map((chunk) => ({
+            ...chunk,
+            wikiContext: "",
+            wikiDocuments: [],
+        }));
+    }
+    const result = await (0,_llm_js__WEBPACK_IMPORTED_MODULE_7__/* .reviewChunksWithLLM */ .W)(chunksWithWikiContext);
     if (result.reviews.length === 0) {
         console.log("No issues found by AI.");
         return;
@@ -56981,15 +57098,15 @@ async function runWikiUpdateMode(chunks) {
         return;
     }
     await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
-    const chunksWithWikiContext = await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_7__/* .getWikiContextForChunks */ .T)(chunks);
-    const wikiUpdatePlan = await (0,_wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_8__/* .planWikiMarkdownUpdates */ .v)(chunksWithWikiContext);
+    const chunksWithWikiContext = await (0,_wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__/* .getWikiUpdateContextForChunks */ .i)(chunks);
+    const wikiUpdatePlan = await (0,_wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_10__/* .planWikiMarkdownUpdates */ .v)(chunksWithWikiContext);
     if (!wikiUpdatePlan.updatesRequired) {
         console.log("[CodeSentinal Wiki] No wiki markdown update required.");
         return;
     }
     console.log("[CodeSentinal Wiki] Wiki update plan:");
     console.log(JSON.stringify(wikiUpdatePlan, null, 2));
-    const wikiFileChanges = await (0,_wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_9__/* .buildWikiMarkdownFileChanges */ .D)(wikiUpdatePlan);
+    const wikiFileChanges = await (0,_wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_11__/* .buildWikiMarkdownFileChanges */ .D)(wikiUpdatePlan);
     if (wikiFileChanges.length === 0) {
         console.log("[CodeSentinal Wiki] No wiki file changes after patch building.");
         return;
@@ -57013,15 +57130,13 @@ else if (mode === "wiki-update") {
     await runWikiUpdateMode(chunks);
 }
 else if (mode === "all") {
-    const results = await Promise.allSettled([
-        runReviewMode(chunks),
-        runWikiUpdateMode(chunks),
-    ]);
-    for (const result of results) {
-        if (result.status === "rejected") {
-            console.error("[CodeSentinal] One pipeline failed:");
-            console.error(result.reason);
-        }
+    try {
+        await runReviewMode(chunks);
+        await runWikiUpdateMode(chunks);
+    }
+    catch (error) {
+        console.error("[CodeSentinal] Pipeline failed:");
+        console.error(error);
     }
 }
 else {
@@ -57033,7 +57148,7 @@ __webpack_async_result__();
 
 /***/ }),
 
-/***/ 2603:
+/***/ 9411:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 
@@ -78510,75 +78625,213 @@ function getApiKeyFromEnv() {
 
 // EXTERNAL MODULE: ./node_modules/zod/v4/classic/schemas.js + 16 modules
 var schemas = __nccwpck_require__(2314);
+// EXTERNAL MODULE: ./dist/config/runtimeConfig.js
+var runtimeConfig = __nccwpck_require__(989);
 ;// CONCATENATED MODULE: ./dist/prompt.js
+
 function buildReviewPrompt(reviewChunks) {
     return `
-You are an expert senior software engineer reviewing a GitHub Pull Request.
+You are CodeSentinal.
 
-You will receive ReviewChunk objects.
+You are a senior staff-level software engineer performing a GitHub Pull Request review.
 
-Some chunks may include:
-- wikiContext: relevant CodeSentinal LLM Wiki context
-- wikiDocuments: markdown files used to build that context
+Your goal is NOT to maximize findings.
 
-Use wikiContext as repository knowledge. It may include architecture, coding rules, review rules, data contracts, and file-level summaries.
+Your goal is to maximize accuracy.
 
-Each chunk contains:
-- filename: changed file path
-- startLine/endLine: visible new-file line range
-- codeWithContext: code with context, added lines marked "+", removed lines marked "-"
-- addedLines: ONLY lines you are allowed to comment on
-- removedLines: removed old logic, only for understanding
-- metadata: language and hunk info
+If uncertain, do NOT create a review comment.
 
-Rules:
-1. Read codeWithContext carefully.
-2. Use wikiContext to understand repository architecture and file responsibility.
-3. Comment ONLY on lines listed in addedLines.newLine.
-4. Use removedLines only to understand what changed.
-5. Do not comment on removed lines.
-6. Do not comment on context-only lines.
-7. Do not report formatting-only or style-only issues.
-8. Report only real bugs, security issues, logic errors, performance problems, error handling issues, or maintainability issues.
-9. Every review.line must match one addedLines.newLine.
-10. githubComment.path must equal filename.
-11. githubComment.line must equal review.line.
-12. githubComment.side must always be "RIGHT".
-13. githubComment.body must be ready to post directly on GitHub.
-14. Do not suggest edits to wiki markdown files here. Wiki updates are handled separately.
-15. Strictly DO  NOT raise issues for or give suggestions like : Add a newline character to the end of the file., Add a trailing comma after the 'start' script.,Add a space between the import path and './prompt.js'., Add a comma after the 'reviews' property. Only give suggestions and raise issues for logical syntactical ow architectural issues and not of comma, spaces and wierd things which are just  documentation or code writing style unless it cause an error.
+--------------------------------------------------
+REPOSITORY CONTEXT
+--------------------------------------------------
 
-Return JSON only in this format:
+Each ReviewChunk may contain:
+
+- wikiContext
+- wikiDocuments
+
+The wiki is repository memory generated from accepted code.
+
+Use it to understand:
+
+- architecture
+- coding rules
+- review rules
+- data contracts
+- file responsibilities
+- repository conventions
+
+Treat wiki information as higher priority than assumptions.
+
+--------------------------------------------------
+REVIEW PHILOSOPHY
+--------------------------------------------------
+
+Only report issues that are:
+
+- highly likely to be real
+- actionable
+- important enough to justify developer attention
+
+Do NOT create comments for:
+
+- formatting
+- whitespace
+- import ordering
+- naming preferences
+- style preferences
+- personal opinions
+- speculative concerns
+
+If confidence is below 90%, do not comment.
+
+--------------------------------------------------
+PRIORITY ORDER
+--------------------------------------------------
+
+1. Security vulnerabilities
+2. Runtime failures
+3. Data contract violations
+4. Architecture violations
+5. Logic bugs
+6. Error handling issues
+7. Performance issues
+8. Maintainability concerns
+
+--------------------------------------------------
+LINE RULES
+--------------------------------------------------
+
+You may ONLY comment on added lines.
+
+Valid lines are:
+
+addedLines[].newLine
+
+Never comment on:
+
+- removed lines
+- context lines
+- unchanged lines
+
+review.line MUST exactly match an added line.
+
+githubComment.line MUST equal review.line.
+
+githubComment.path MUST equal filename.
+
+githubComment.side MUST always be RIGHT.
+
+--------------------------------------------------
+DUPLICATE RULE
+--------------------------------------------------
+
+If multiple chunks describe the same issue:
+
+Create only ONE review.
+
+Never report the same issue twice.
+
+--------------------------------------------------
+WIKI RULE
+--------------------------------------------------
+
+Do NOT suggest edits to wiki markdown files.
+
+Wiki maintenance is handled separately.
+
+--------------------------------------------------
+COMMENT QUALITY
+--------------------------------------------------
+
+Every comment must explain:
+
+1. What is wrong
+2. Why it matters
+3. How to fix it
+
+Keep comments concise.
+
+Do not write essays.
+
+--------------------------------------------------
+COMMENT LIMIT
+--------------------------------------------------
+
+Return at most ${runtimeConfig/* CONFIG */.P.github.maxInlineComments} reviews.
+
+Return the highest severity issues first.
+
+--------------------------------------------------
+OUTPUT FORMAT
+--------------------------------------------------
+
+Return JSON only.
+
 {
   "reviews": [
     {
       "filename": "src/file.ts",
       "line": 10,
-      "severity": "medium",
+      "severity": "high",
       "category": "logic",
-      "issue": "Explain the issue clearly.",
-      "suggestion": "Explain the fix clearly.",
+      "issue": "Describe issue",
+      "suggestion": "Describe fix",
       "githubComment": {
         "path": "src/file.ts",
         "line": 10,
         "side": "RIGHT",
-        "body": "Severity: medium\\nCategory: logic\\n\\nIssue:\\n...\\n\\nSuggestion:\\n..."
+        "body": "Severity: high\\nCategory: logic\\n\\nIssue:\\n...\\n\\nSuggestion:\\n..."
       }
     }
   ]
 }
 
 If no issues:
+
 {
   "reviews": []
 }
 
-ReviewChunks:
+--------------------------------------------------
+REVIEW CHUNKS
+--------------------------------------------------
+
 ${JSON.stringify(reviewChunks, null, 2)}
 `;
 }
 
+// EXTERNAL MODULE: ./dist/wiki/utils/debugLogger.js
+var debugLogger = __nccwpck_require__(180);
+// EXTERNAL MODULE: external "crypto"
+var external_crypto_ = __nccwpck_require__(6982);
+;// CONCATENATED MODULE: ./dist/wiki/reviewDeduplicator.js
+
+function deduplicateReviews(reviews) {
+    const seen = new Set();
+    const result = [];
+    for (const review of reviews) {
+        const hash = external_crypto_.createHash("sha256")
+            .update(review.filename
+            .trim()
+            .toLowerCase())
+            .update(review.issue
+            .trim()
+            .toLowerCase())
+            .digest("hex");
+        if (seen.has(hash)) {
+            continue;
+        }
+        seen.add(hash);
+        result.push(review);
+    }
+    return result;
+}
+
 ;// CONCATENATED MODULE: ./dist/llm.js
+
+
+
 
 
 
@@ -78588,8 +78841,48 @@ let ai = null;
 function llm_sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
+async function executeWithRetry(operation) {
+    let attempt = 0;
+    while (true) {
+        try {
+            return await operation();
+        }
+        catch (error) {
+            attempt++;
+            const status = error?.status ??
+                error?.response?.status;
+            const message = String(error?.message ?? "").toLowerCase();
+            const retryable = status === 429 ||
+                status === 500 ||
+                status === 502 ||
+                status === 503 ||
+                status === 504 ||
+                message.includes("timeout") ||
+                message.includes("deadline") ||
+                message.includes("rate limit") ||
+                message.includes("quota");
+            if (!retryable) {
+                throw error;
+            }
+            if (attempt >=
+                runtimeConfig/* CONFIG */.P.llm.maxRetries) {
+                throw error;
+            }
+            const delay = runtimeConfig/* CONFIG */.P.llm.retryDelayMs *
+                Math.pow(2, attempt - 1);
+            console.log(`[CodeSentinal LLM] Retry ${attempt}/${runtimeConfig/* CONFIG */.P.llm.maxRetries} after ${delay}ms`);
+            await llm_sleep(delay);
+        }
+    }
+}
+async function withTimeout(promise) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Gemini request timeout exceeded")), runtimeConfig/* CONFIG */.P.llm.requestTimeoutMs)),
+    ]);
+}
 async function waitBeforeGeminiCall() {
-    await llm_sleep(5000);
+    await llm_sleep(runtimeConfig/* CONFIG */.P.llm.retryDelayMs);
 }
 function getGeminiClient() {
     if (ai)
@@ -78603,10 +78896,10 @@ function getGeminiClient() {
 }
 async function generateTextWithGemini(prompt) {
     await waitBeforeGeminiCall();
-    const response = await getGeminiClient().models.generateContent({
-        model: "gemini-3.1-flash-lite",
+    const response = await executeWithRetry(() => withTimeout(getGeminiClient().models.generateContent({
+        model: runtimeConfig/* CONFIG */.P.llm.wikiModel,
         contents: prompt,
-    });
+    })));
     return response.text?.trim() || "";
 }
 const llmReviewSchema = schemas/* object */.Ik({
@@ -78689,18 +78982,21 @@ async function reviewChunksWithLLM(reviewChunks) {
     }
     const prompt = buildReviewPrompt(reviewChunks);
     await waitBeforeGeminiCall();
-    const response = await getGeminiClient().models.generateContent({
-        model: "gemini-3.1-flash-lite",
+    const response = await executeWithRetry(() => withTimeout(getGeminiClient().models.generateContent({
+        model: runtimeConfig/* CONFIG */.P.llm.reviewModel,
         contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: geminiResponseSchema,
         },
-    });
-    const rawText = response.text ?? '{"reviews":[]}';
+    })));
+    const rawText = response.text ??
+        '{"reviews":[]}';
     let parsed;
     try {
-        parsed = JSON.parse(rawText);
+        parsed =
+            JSON.parse(rawText);
+        (0,debugLogger/* debugJson */.q)("REVIEW_RESPONSE", parsed);
     }
     catch {
         console.log("Gemini returned invalid JSON:");
@@ -78713,8 +79009,12 @@ async function reviewChunksWithLLM(reviewChunks) {
         console.log(validated.error);
         return { reviews: [] };
     }
-    console.log("success from llm");
-    return validated.data;
+    const deduplicatedReviews = deduplicateReviews(validated.data.reviews);
+    console.log(`[CodeSentinal] Reviews before dedupe: ${validated.data.reviews.length}`);
+    console.log(`[CodeSentinal] Reviews after dedupe: ${deduplicatedReviews.length}`);
+    return {
+        reviews: deduplicatedReviews.slice(0, runtimeConfig/* CONFIG */.P.github.maxInlineComments),
+    };
 }
 
 
@@ -78851,7 +79151,7 @@ const MAX_SOURCE_PREVIEW_CHARS = 6000;
 
 /***/ }),
 
-/***/ 4561:
+/***/ 4351:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 
@@ -79064,10 +79364,25 @@ async function analyzeRepository(repoRoot) {
             kind: detectFileKind(relativePath),
         });
     }
+    // const fileAnalyses: FileAnalysis[] = files.map((file) => {
+    //   const imports = extractImports(file.content);
+    //   const exports = extractExports(file.content);
+    //   const symbols = extractSymbols(file.content);
+    //   return {
+    //     file,
+    //     imports,
+    //     exports,
+    //     symbols,
+    //     dependsOn: resolveLocalDependencies(file.path, imports),
+    //     purpose: inferPurpose(file, symbols),
+    //     risks: detectRisks(file, file.content),
+    //   };
+    // });
     const fileAnalyses = files.map((file) => {
         const imports = extractImports(file.content);
         const exports = extractExports(file.content);
         const symbols = extractSymbols(file.content);
+        const risks = detectRisks(file, file.content);
         return {
             file,
             imports,
@@ -79075,7 +79390,10 @@ async function analyzeRepository(repoRoot) {
             symbols,
             dependsOn: resolveLocalDependencies(file.path, imports),
             purpose: inferPurpose(file, symbols),
-            risks: detectRisks(file, file.content),
+            risks,
+            inferredResponsibilities: inferResponsibilities(file, symbols),
+            architecturalRole: inferArchitecturalRole(file),
+            reviewFocusAreas: inferReviewFocusAreas(file, risks),
         };
     });
     return {
@@ -79093,84 +79411,206 @@ async function analyzeRepository(repoRoot) {
         testFiles: files.filter((f) => f.kind === "test").map((f) => f.path),
     };
 }
+function inferResponsibilities(file, symbols) {
+    const responsibilities = new Set();
+    const lower = file.path.toLowerCase();
+    if (lower.includes("wiki")) {
+        responsibilities.add("Repository memory generation");
+        responsibilities.add("Wiki lifecycle management");
+    }
+    if (lower.includes("github")) {
+        responsibilities.add("GitHub API communication");
+        responsibilities.add("Pull request operations");
+    }
+    if (lower.includes("llm")) {
+        responsibilities.add("LLM communication");
+        responsibilities.add("Prompt orchestration");
+    }
+    if (lower.includes("review")) {
+        responsibilities.add("Pull request review generation");
+    }
+    if (lower.includes("diff")) {
+        responsibilities.add("Patch parsing");
+        responsibilities.add("Code change extraction");
+    }
+    if (symbols.some((s) => s.type === "type")) {
+        responsibilities.add("Type contract definition");
+    }
+    if (symbols.some((s) => s.type === "interface")) {
+        responsibilities.add("Interface definition");
+    }
+    if (responsibilities.size === 0) {
+        responsibilities.add("Repository functionality");
+    }
+    return Array.from(responsibilities);
+}
+function inferArchitecturalRole(file) {
+    const lower = file.path.toLowerCase();
+    if (lower.includes("index") ||
+        lower.includes("main")) {
+        return "Application Entrypoint";
+    }
+    if (lower.includes("github")) {
+        return "Infrastructure Adapter";
+    }
+    if (lower.includes("llm")) {
+        return "AI Integration Layer";
+    }
+    if (lower.includes("wiki")) {
+        return "Repository Knowledge Layer";
+    }
+    if (lower.includes("diff")) {
+        return "Change Processing Layer";
+    }
+    if (lower.includes("review")) {
+        return "Review Engine";
+    }
+    return "Application Component";
+}
+function inferReviewFocusAreas(file, risks) {
+    const focus = new Set();
+    const lower = file.path.toLowerCase();
+    if (lower.includes("github")) {
+        focus.add("GitHub API correctness");
+        focus.add("Permission safety");
+    }
+    if (lower.includes("llm")) {
+        focus.add("Prompt correctness");
+        focus.add("Response validation");
+    }
+    if (lower.includes("wiki")) {
+        focus.add("Knowledge consistency");
+        focus.add("Context quality");
+    }
+    if (lower.includes("workflow")) {
+        focus.add("CI/CD security");
+    }
+    if (risks.length > 0) {
+        focus.add("Risk mitigation");
+    }
+    if (focus.size === 0) {
+        focus.add("Business logic correctness");
+    }
+    return Array.from(focus);
+}
 
-// EXTERNAL MODULE: ./dist/llm.js + 4 modules
-var llm = __nccwpck_require__(2603);
+// EXTERNAL MODULE: ./dist/llm.js + 5 modules
+var llm = __nccwpck_require__(9411);
+// EXTERNAL MODULE: ./dist/config/runtimeConfig.js
+var runtimeConfig = __nccwpck_require__(989);
 ;// CONCATENATED MODULE: ./dist/wiki/llmWikiPrompts.js
-function buildFileWikiPrompt(fileAnalysis) {
-    const { file } = fileAnalysis;
-    return `
-You are generating an LLM Wiki markdown page for a code repository.
 
-Write a clean, technical, factual markdown document for this file.
+function safeJoin(values, fallback = "None") {
+    return values.length > 0
+        ? values.join("\n")
+        : fallback;
+}
+function getImportantFiles(analysis) {
+    return analysis.fileAnalyses.slice(0, runtimeConfig/* CONFIG */.P.wiki.maxFilesPerBatch);
+}
+function buildFileWikiPrompt(fileAnalysis) {
+    return `
+You are generating repository memory for CodeSentinal.
+
+This markdown page will be used later during pull request review.
+
+Goal:
+Preserve repository knowledge that helps future reviews.
+
+Generate markdown with these sections only:
+
+# Purpose
+
+# Responsibilities
+
+# Architectural Role
+
+# Critical Review Context
+
+# Related Components
+
+# Repository Memory
 
 Rules:
+
 - Do not invent facts.
-- Use only the provided file content and extracted metadata.
-- Be concise but useful for future AI code review.
-- Explain what this file does, important functions, risks, and how PR changes should be reviewed.
-- Return markdown only.
+- Do not output source code.
+- Do not output imports.
+- Do not output exports.
+- Do not output symbols.
+- Use only supplied repository intelligence.
+- Optimize for future PR reviews.
 
-File path:
-${file.path}
+Repository Intelligence
 
-File kind:
-${file.kind}
+File:
+${fileAnalysis.file.path}
 
-Imports:
-${fileAnalysis.imports.join("\n") || "None"}
-
-Exports:
-${fileAnalysis.exports.join("\n") || "None"}
-
-Symbols:
-${fileAnalysis.symbols
-        .map((s) => `${s.name} - ${s.type} - ${s.exported ? "exported" : "internal"}`)
-        .join("\n") || "None"}
-
-Detected local dependencies:
-${fileAnalysis.dependsOn.join("\n") || "None"}
-
-Static purpose guess:
+Purpose:
 ${fileAnalysis.purpose}
 
-Risk notes:
-${fileAnalysis.risks.join("\n") || "None"}
+Architectural Role:
+${fileAnalysis.architecturalRole}
 
-File content:
-\`\`\`
-${file.content.slice(0, 9000)}
-\`\`\`
+Responsibilities:
+${safeJoin(fileAnalysis.inferredResponsibilities)}
+
+Review Focus Areas:
+${safeJoin(fileAnalysis.reviewFocusAreas)}
+
+Risks:
+${safeJoin(fileAnalysis.risks)}
+
+Dependencies:
+${safeJoin(fileAnalysis.dependsOn)}
+
+Return markdown only.
 `;
 }
 function buildArchitectureWikiPrompt(analysis) {
+    const importantFiles = getImportantFiles(analysis);
     return `
-You are generating architecture.md for an LLM Wiki.
+Generate architecture.md.
 
-This wiki will be used by an AI pull request reviewer to understand the repository before reviewing code.
+Purpose:
+Provide repository architecture context for future PR reviews.
 
 Rules:
-- Do not invent external systems.
-- Use only the repository facts provided.
-- Explain architecture, major modules, workflows, and data flow.
-- Mention how this architecture should guide PR review.
+
+- Use only repository facts.
+- Do not invent systems.
+- Explain architecture.
+- Explain major modules.
+- Explain data flow.
+- Explain review implications.
 - Return markdown only.
 
-Detected tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Tech Stack:
+
+${safeJoin(analysis.detectedTechStack)}
 
 Entrypoints:
-${analysis.entrypoints.join("\n") || "None"}
 
-Workflow files:
-${analysis.workflowFiles.join("\n") || "None"}
+${safeJoin(analysis.entrypoints)}
 
-Config files:
-${analysis.configFiles.join("\n") || "None"}
+Workflow Files:
 
-Files and purposes:
-${analysis.fileAnalyses
-        .map((f) => `- ${f.file.path}: ${f.purpose}`)
+${safeJoin(analysis.workflowFiles)}
+
+Configuration Files:
+
+${safeJoin(analysis.configFiles)}
+
+Major Components:
+
+${importantFiles
+        .map((f) => `
+File: ${f.file.path}
+Role: ${f.architecturalRole}
+Purpose: ${f.purpose}
+Responsibilities:
+${safeJoin(f.inferredResponsibilities)}
+`)
         .join("\n")}
 `;
 }
@@ -79180,105 +79620,134 @@ function buildDataContractsWikiPrompt(analysis) {
         return (lower.includes("schema") ||
             lower.includes("type") ||
             lower.includes("interface") ||
-            item.symbols.some((s) => s.type === "type" || s.type === "interface"));
+            item.symbols.some((s) => s.type === "type" ||
+                s.type === "interface"));
     });
     return `
-Generate database-schema.md for CodeSentinal's LLM Wiki.
+Generate database-schema.md.
 
-Important:
-This repo may not have a real database. In that case, treat this as "data contracts and internal object shapes".
+Purpose:
+Describe important data contracts used by the repository.
 
 Rules:
+
 - Do not invent schemas.
-- Focus on TypeScript types, interfaces, validation schemas, GitHub API payloads, LLM response shapes, and important object structures.
-- Explain what PR reviewers should check when these contracts change.
+- Focus on contracts.
+- Focus on interfaces.
+- Focus on validation structures.
+- Focus on payload shapes.
 - Return markdown only.
 
-Contract-like files:
+Contract Files:
+
 ${contractFiles
         .map((item) => `
-File: ${item.file.path}
-Purpose: ${item.purpose}
-Symbols:
-${item.symbols.map((s) => `- ${s.name}: ${s.type}`).join("\n") || "None"}
+File:
+${item.file.path}
+
+Purpose:
+${item.purpose}
+
+Role:
+${item.architecturalRole}
 `)
         .join("\n")}
 `;
 }
 function buildCodingRulesWikiPrompt(analysis) {
     return `
-Generate coding-rules.md for this repository's LLM Wiki.
+Generate coding-rules.md.
 
-Rules:
-- Infer coding rules only from provided repository facts.
-- Include TypeScript, GitHub Actions, LLM, security, and maintainability rules if relevant.
-- These rules will guide an AI PR reviewer.
-- Return markdown only.
+Purpose:
+Define repository-specific review expectations.
 
-Tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Tech Stack:
 
-Config files:
-${analysis.configFiles.join("\n") || "None"}
+${safeJoin(analysis.detectedTechStack)}
 
-Workflow files:
-${analysis.workflowFiles.join("\n") || "None"}
+Configuration Files:
 
-Risk patterns found:
-${analysis.fileAnalyses
-        .flatMap((f) => f.risks.map((risk) => `${f.file.path}: ${risk}`))
-        .join("\n") || "None"}
+${safeJoin(analysis.configFiles)}
+
+Workflow Files:
+
+${safeJoin(analysis.workflowFiles)}
+
+Detected Risks:
+
+${safeJoin(analysis.fileAnalyses.flatMap((f) => f.risks))}
 `;
 }
 function buildReviewRulesWikiPrompt(analysis) {
+    const reviewRelevantFiles = analysis.fileAnalyses.filter((f) => [
+        "review",
+        "llm",
+        "github",
+        "octokit",
+        "diff",
+        "workflow",
+    ].some((keyword) => f.file.path
+        .toLowerCase()
+        .includes(keyword)));
     return `
-Generate review-rules.md for CodeSentinal.
+Generate review-rules.md.
 
-This file defines how the AI reviewer should behave while reviewing pull requests.
+Purpose:
+Define how CodeSentinal should review pull requests.
 
 Rules:
-- Focus on meaningful review comments.
-- Avoid noisy style-only comments.
-- Include severity guidance.
-- Include GitHub Actions security rules.
-- Include LLM output validation rules.
-- Include when wiki updates should be suggested.
+
+- Focus on correctness.
+- Focus on security.
+- Focus on architecture.
+- Avoid style-only comments.
+- Avoid formatting comments.
 - Return markdown only.
 
-Repository facts:
-Tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Review-Relevant Components:
 
-Important files:
-${analysis.fileAnalyses
-        .filter((f) => ["review", "llm", "github", "octokit", "diff", "workflow"].some((k) => f.file.path.toLowerCase().includes(k)))
-        .map((f) => `- ${f.file.path}: ${f.purpose}`)
-        .join("\n") || "None"}
+${reviewRelevantFiles
+        .map((f) => `
+${f.file.path}
+Role: ${f.architecturalRole}
+Purpose: ${f.purpose}
+`)
+        .join("\n")}
 `;
 }
 function buildIndexWikiPrompt(analysis, fileEntries) {
     return `
-Generate index.md for CodeSentinal's LLM Wiki.
+Generate index.md.
 
-Rules:
-- This is the entry point for the wiki.
-- Explain what this wiki is.
-- Link to core wiki pages.
-- Include file-by-file wiki entries.
-- Return markdown only.
+Purpose:
+Serve as the entrypoint for the CodeSentinal wiki.
 
-Stats:
-Total files: ${analysis.files.length}
-Source files: ${analysis.files.filter((f) => f.kind === "source").length}
-Workflow files: ${analysis.workflowFiles.length}
-Config files: ${analysis.configFiles.length}
-Test files: ${analysis.testFiles.length}
+Repository Statistics
 
-Tech stack:
-${analysis.detectedTechStack.join("\n") || "None"}
+Total Files:
+${analysis.files.length}
 
-File wiki entries:
-${fileEntries.join("\n")}
+Source Files:
+${analysis.files.filter((f) => f.kind === "source").length}
+
+Workflow Files:
+${analysis.workflowFiles.length}
+
+Config Files:
+${analysis.configFiles.length}
+
+Test Files:
+${analysis.testFiles.length}
+
+Tech Stack:
+
+${safeJoin(analysis.detectedTechStack)}
+
+File Wiki Pages:
+
+${safeJoin(fileEntries)}
+
+Return markdown only.
 `;
 }
 
@@ -79287,81 +79756,49 @@ ${fileEntries.join("\n")}
 
 function cleanMarkdown(markdown, fallbackTitle) {
     const cleaned = markdown
-        .replace(/^```md\s*/i, "")
-        .replace(/^```markdown\s*/i, "")
+        .replace(/^```(?:md|markdown)?\s*/i, "")
         .replace(/```$/i, "")
         .trim();
     if (!cleaned) {
         return `# ${fallbackTitle}\n\nNo content generated.\n`;
     }
-    if (!cleaned.startsWith("#")) {
-        return `# ${fallbackTitle}\n\n${cleaned}\n`;
-    }
-    return cleaned + "\n";
+    const normalized = cleaned.startsWith("#")
+        ? cleaned
+        : `# ${fallbackTitle}\n\n${cleaned}`;
+    return normalized.trimEnd() + "\n";
+}
+async function generateMarkdown(prompt, fallbackTitle) {
+    const response = await (0,llm/* generateTextWithGemini */.Y)(prompt);
+    return cleanMarkdown(response, fallbackTitle);
 }
 async function generateFileWikiWithLLM(fileAnalysis) {
-    const prompt = buildFileWikiPrompt(fileAnalysis);
-    const markdown = await (0,llm/* generateTextWithGemini */.Y)(prompt);
-    return cleanMarkdown(markdown, fileAnalysis.file.path);
+    return generateMarkdown(buildFileWikiPrompt(fileAnalysis), fileAnalysis.file.path);
 }
 async function generateArchitectureWithLLM(analysis) {
-    const markdown = await (0,llm/* generateTextWithGemini */.Y)(buildArchitectureWikiPrompt(analysis));
-    return cleanMarkdown(markdown, "Architecture");
+    return generateMarkdown(buildArchitectureWikiPrompt(analysis), "Architecture");
 }
 async function generateDataContractsWithLLM(analysis) {
-    const markdown = await (0,llm/* generateTextWithGemini */.Y)(buildDataContractsWikiPrompt(analysis));
-    return cleanMarkdown(markdown, "Database Schema and Data Contracts");
+    return generateMarkdown(buildDataContractsWikiPrompt(analysis), "Database Schema and Data Contracts");
 }
 async function generateCodingRulesWithLLM(analysis) {
-    const markdown = await (0,llm/* generateTextWithGemini */.Y)(buildCodingRulesWikiPrompt(analysis));
-    return cleanMarkdown(markdown, "Coding Rules");
+    return generateMarkdown(buildCodingRulesWikiPrompt(analysis), "Coding Rules");
 }
 async function generateReviewRulesWithLLM(analysis) {
-    const markdown = await (0,llm/* generateTextWithGemini */.Y)(buildReviewRulesWikiPrompt(analysis));
-    return cleanMarkdown(markdown, "Review Rules");
+    return generateMarkdown(buildReviewRulesWikiPrompt(analysis), "Review Rules");
 }
 async function generateIndexWithLLM(analysis, fileEntries) {
-    const markdown = await (0,llm/* generateTextWithGemini */.Y)(buildIndexWikiPrompt(analysis, fileEntries));
-    return cleanMarkdown(markdown, "CodeSentinal LLM Wiki");
+    return generateMarkdown(buildIndexWikiPrompt(analysis, fileEntries), "CodeSentinal LLM Wiki");
 }
 
-// EXTERNAL MODULE: ./dist/wiki/config/wikiConfig.js
-var wikiConfig = __nccwpck_require__(5588);
-;// CONCATENATED MODULE: ./dist/wiki/utils/wikiWriter.js
-
-
-
-function sourcePathToWikiFileName(sourcePath) {
-    return sourcePath
-        .replace(/\\/g, "/")
-        .replace(/\//g, "_")
-        .replace(/\./g, "_")
-        .replace(/[^A-Za-z0-9_-]/g, "_") + ".md";
-}
-function sourcePathToWikiPath(sourcePath) {
-    return external_path_.join(wikiConfig/* FILE_WIKI_ROOT */.rD, sourcePathToWikiFileName(sourcePath));
-}
-async function prepareWikiFolders() {
-    await (0,fileHelpers/* ensureDir */.A0)(wikiConfig/* WIKI_ROOT */.eb);
-    await (0,fileHelpers/* ensureDir */.A0)(wikiConfig/* FILE_WIKI_ROOT */.rD);
-}
-async function writeCoreWikiFile(fileName, content) {
-    const filePath = external_path_.join(wikiConfig/* WIKI_ROOT */.eb, fileName);
-    await (0,fileHelpers/* writeTextFile */.Tl)(filePath, content.trim() + "\n");
-    return filePath;
-}
-async function writeFileWiki(sourcePath, content) {
-    const filePath = sourcePathToWikiPath(sourcePath);
-    await (0,fileHelpers/* writeTextFile */.Tl)(filePath, content.trim() + "\n");
-    return filePath;
-}
-
+// EXTERNAL MODULE: ./dist/wiki/utils/wikiWriter.js
+var wikiWriter = __nccwpck_require__(2736);
 ;// CONCATENATED MODULE: ./dist/wiki/initWiki.js
 
 
 
 
-const MAX_FILE_WIKI_GENERATIONS = Number(external_process_.env.CODE_SENTINAL_MAX_WIKI_FILES || "5");
+
+
 function shouldGenerateFileWiki(filePath) {
     const lower = filePath.toLowerCase();
     if (lower.includes("package-lock.json"))
@@ -79372,32 +79809,54 @@ function shouldGenerateFileWiki(filePath) {
         return false;
     return true;
 }
+function chunkArray(items, size) {
+    const chunks = [];
+    for (let i = 0; i < items.length; i += size) {
+        chunks.push(items.slice(i, i + size));
+    }
+    return chunks;
+}
 async function initWiki(repoRoot = external_process_.cwd()) {
     console.log("[CodeSentinal Wiki] Starting LLM-powered wiki initialization...");
-    await prepareWikiFolders();
+    await (0,wikiWriter/* prepareWikiFolders */.l2)();
     const analysis = await analyzeRepository(repoRoot);
-    console.log(`[CodeSentinal Wiki] Repository analyzed.`);
+    console.log("[CodeSentinal Wiki] Repository analyzed.");
     console.log(`[CodeSentinal Wiki] Files found: ${analysis.files.length}`);
     const writtenFiles = [];
     const skippedFiles = [];
-    const fileAnalysesToGenerate = analysis.fileAnalyses
-        .filter((item) => shouldGenerateFileWiki(item.file.path))
-        .slice(0, MAX_FILE_WIKI_GENERATIONS);
-    console.log(`[CodeSentinal Wiki] Generating file wiki pages: ${fileAnalysesToGenerate.length}`);
-    for (const fileAnalysis of fileAnalysesToGenerate) {
-        try {
-            console.log(`[CodeSentinal Wiki] Generating wiki for ${fileAnalysis.file.path}`);
-            const markdown = await generateFileWikiWithLLM(fileAnalysis);
-            const writtenPath = await writeFileWiki(fileAnalysis.file.path, markdown);
-            writtenFiles.push(writtenPath);
+    const fileAnalysesToGenerate = [];
+    for (const item of analysis.fileAnalyses) {
+        if (!shouldGenerateFileWiki(item.file.path)) {
+            continue;
         }
-        catch (error) {
-            console.warn(`[CodeSentinal Wiki] Failed to generate wiki for ${fileAnalysis.file.path}`, error);
-            skippedFiles.push(fileAnalysis.file.path);
+        const wikiPath = (0,wikiWriter/* sourcePathToWikiPath */.xu)(item.file.path);
+        const exists = await (0,fileHelpers/* pathExists */.s0)(wikiPath);
+        if (!exists) {
+            fileAnalysesToGenerate.push(item);
         }
     }
-    const fileEntries = fileAnalysesToGenerate.map((item) => {
-        const wikiPath = sourcePathToWikiPath(item.file.path).replace(".codesentinal/wiki/", "");
+    console.log(`[CodeSentinal Wiki] Missing file wiki pages detected: ${fileAnalysesToGenerate.length}`);
+    const batches = chunkArray(fileAnalysesToGenerate, runtimeConfig/* CONFIG */.P.wiki.maxFilesPerBatch);
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`[CodeSentinal Wiki] Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} files)`);
+        for (const fileAnalysis of batch) {
+            try {
+                console.log(`[CodeSentinal Wiki] Generating wiki for ${fileAnalysis.file.path}`);
+                const markdown = await generateFileWikiWithLLM(fileAnalysis);
+                const writtenPath = await (0,wikiWriter/* writeFileWiki */.Cn)(fileAnalysis.file.path, markdown);
+                writtenFiles.push(writtenPath);
+            }
+            catch (error) {
+                console.warn(`[CodeSentinal Wiki] Failed to generate wiki for ${fileAnalysis.file.path}`, error);
+                skippedFiles.push(fileAnalysis.file.path);
+            }
+        }
+    }
+    const fileEntries = analysis.fileAnalyses
+        .filter((item) => shouldGenerateFileWiki(item.file.path))
+        .map((item) => {
+        const wikiPath = (0,wikiWriter/* sourcePathToWikiPath */.xu)(item.file.path).replace(".codesentinal/wiki/", "");
         return `- [${item.file.path}](${wikiPath}) — ${item.purpose}`;
     });
     const coreGenerators = [
@@ -79421,12 +79880,48 @@ async function initWiki(repoRoot = external_process_.cwd()) {
             fileName: "index.md",
             generate: () => generateIndexWithLLM(analysis, fileEntries),
         },
+        {
+            fileName: "repository-memory.md",
+            generate: async () => `
+# Repository Memory
+
+This file stores long-term repository knowledge.
+
+## Architectural Decisions
+
+Document major architectural decisions.
+
+---
+
+## Known Constraints
+
+Document repository limitations.
+
+---
+
+## Migration Notes
+
+Document migrations and compatibility concerns.
+
+---
+
+## Review Findings
+
+Document recurring review findings and lessons.
+
+---
+
+## Integration Knowledge
+
+Document external integrations, workflows, and cross-system behavior.
+`,
+        }
     ];
     for (const core of coreGenerators) {
         try {
             console.log(`[CodeSentinal Wiki] Generating ${core.fileName}`);
             const markdown = await core.generate();
-            const writtenPath = await writeCoreWikiFile(core.fileName, markdown);
+            const writtenPath = await (0,wikiWriter/* writeCoreWikiFile */.R)(core.fileName, markdown);
             writtenFiles.push(writtenPath);
         }
         catch (error) {
@@ -79446,16 +79941,58 @@ async function initWiki(repoRoot = external_process_.cwd()) {
 ;// CONCATENATED MODULE: ./dist/wiki/ensureWikiAvailable.js
 
 
-const WIKI_INDEX_PATH = ".codesentinal/wiki/index.md";
+
+
+const REQUIRED_CORE_WIKI_FILES = [
+    ".codesentinal/wiki/index.md",
+    ".codesentinal/wiki/architecture.md",
+    ".codesentinal/wiki/database-schema.md",
+    ".codesentinal/wiki/coding-rules.md",
+    ".codesentinal/wiki/review-rules.md",
+    ".codesentinal/wiki/repository-memory.md",
+];
 async function ensureWikiAvailable() {
-    const exists = await (0,fileHelpers/* pathExists */.s0)(WIKI_INDEX_PATH);
-    if (exists) {
-        console.log("[CodeSentinal Wiki] Existing wiki found.");
+    let wikiNeedsInitialization = false;
+    const missingCoreFiles = [];
+    for (const file of REQUIRED_CORE_WIKI_FILES) {
+        const exists = await (0,fileHelpers/* pathExists */.s0)(file);
+        if (!exists) {
+            missingCoreFiles.push(file);
+            wikiNeedsInitialization = true;
+        }
+    }
+    if (missingCoreFiles.length > 0) {
+        console.log(`[CodeSentinal Wiki] Missing ${missingCoreFiles.length} core wiki files.`);
+        for (const file of missingCoreFiles) {
+            console.log(`[CodeSentinal Wiki] Missing core wiki: ${file}`);
+        }
+    }
+    const analysis = await analyzeRepository(process.cwd());
+    const missingFileWikiPages = [];
+    for (const fileAnalysis of analysis.fileAnalyses) {
+        const wikiPath = (0,wikiWriter/* sourcePathToWikiPath */.xu)(fileAnalysis.file.path);
+        const exists = await (0,fileHelpers/* pathExists */.s0)(wikiPath);
+        if (!exists) {
+            missingFileWikiPages.push(fileAnalysis.file.path);
+            wikiNeedsInitialization = true;
+        }
+    }
+    if (missingFileWikiPages.length > 0) {
+        console.log(`[CodeSentinal Wiki] Missing ${missingFileWikiPages.length} file wiki pages.`);
+        for (const file of missingFileWikiPages.slice(0, 20)) {
+            console.log(`[CodeSentinal Wiki] Missing file wiki page for: ${file}`);
+        }
+        if (missingFileWikiPages.length > 20) {
+            console.log(`[CodeSentinal Wiki] ...and ${missingFileWikiPages.length - 20} more.`);
+        }
+    }
+    if (!wikiNeedsInitialization) {
+        console.log("[CodeSentinal Wiki] Wiki integrity check passed.");
         return;
     }
-    console.log("[CodeSentinal Wiki] Wiki missing. Generating runtime wiki...");
+    console.log("[CodeSentinal Wiki] Wiki incomplete. Starting repair.");
     await initWiki();
-    console.log("[CodeSentinal Wiki] Runtime wiki generated.");
+    console.log("[CodeSentinal Wiki] Wiki repair completed.");
 }
 
 
@@ -79468,68 +80005,525 @@ async function ensureWikiAvailable() {
 /* harmony export */   T: () => (/* binding */ getWikiContextForChunks)
 /* harmony export */ });
 /* harmony import */ var _utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(8560);
-/* harmony import */ var _wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(2519);
+/* harmony import */ var _repositoryMemoryRetriever_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(5090);
+/* harmony import */ var _wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(2519);
+/* harmony import */ var _utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(180);
+/* harmony import */ var _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(989);
 
 
-const MAX_DOC_CHARS = 3500;
-const MAX_CONTEXT_CHARS_PER_CHUNK = 12000;
+
+
+
+const MAX_DOC_CHARS = _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.review.maxWikiDocumentChars;
+const MAX_CONTEXT_CHARS = _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.review.maxContextCharsPerChunk;
 function trimContent(content, maxChars) {
-    if (content.length <= maxChars)
+    if (content.length <= maxChars) {
         return content;
+    }
     return (content.slice(0, maxChars) +
-        "\n\n<!-- CodeSentinal: content trimmed for token safety -->");
+        "\n\n<!-- trimmed -->");
 }
 async function loadWikiDocument(wikiFilePath, reason) {
-    if (!(0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_1__/* .isSafeWikiMarkdownPath */ .eH)(wikiFilePath))
+    if (!(0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_2__/* .isSafeWikiMarkdownPath */ .eH)(wikiFilePath)) {
         return null;
+    }
     const content = await (0,_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__/* .readTextFile */ .Gu)(wikiFilePath);
-    if (!content.trim())
+    if (!content.trim()) {
         return null;
+    }
     return {
         wikiFilePath,
         reason,
         content: trimContent(content, MAX_DOC_CHARS),
     };
 }
-function dedupeDocuments(documents) {
+function dedupeDocuments(docs) {
     const seen = new Set();
-    const result = [];
-    for (const doc of documents) {
-        if (seen.has(doc.wikiFilePath))
-            continue;
+    return docs.filter((doc) => {
+        if (seen.has(doc.wikiFilePath)) {
+            return false;
+        }
         seen.add(doc.wikiFilePath);
-        result.push(doc);
-    }
-    return result;
+        return true;
+    });
+}
+function memoryToDocument(memory) {
+    return {
+        wikiFilePath: `.codesentinal/wiki/repository-memory.md#${memory.memoryId}`,
+        reason: `Repository memory match (score=${memory.score})`,
+        content: `
+Section: ${memory.section}
+
+Reason:
+${memory.reason}
+
+Knowledge:
+${memory.knowledge}
+`.trim(),
+    };
 }
 function buildWikiContextText(documents) {
-    let output = "";
+    let result = "";
     for (const doc of documents) {
-        output += `\n\n---\nWIKI FILE: ${doc.wikiFilePath}\nREASON: ${doc.reason}\n\n${doc.content}`;
+        result += `
+---
+WIKI FILE: ${doc.wikiFilePath}
+REASON: ${doc.reason}
+
+${doc.content}
+`;
     }
-    return trimContent(output.trim(), MAX_CONTEXT_CHARS_PER_CHUNK);
+    return trimContent(result.trim(), MAX_CONTEXT_CHARS);
+}
+async function loadGlobalWikiDocuments() {
+    const docs = [];
+    for (const path of (0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_2__/* .getCoreWikiPathsForReview */ .z8)()) {
+        const doc = await loadWikiDocument(path, "Global repository review context.");
+        if (doc) {
+            docs.push(doc);
+        }
+    }
+    return dedupeDocuments(docs);
 }
 async function getWikiContextForChunks(chunks) {
-    const enrichedChunks = [];
+    const globalDocuments = await loadGlobalWikiDocuments();
+    // const globalContext =
+    //   buildWikiContextText(
+    //     globalDocuments
+    //   );
+    const results = [];
     for (const chunk of chunks) {
-        const documents = [];
-        for (const corePath of (0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_1__/* .getCoreWikiPathsForReview */ .z8)()) {
-            const doc = await loadWikiDocument(corePath, "Core repository-level wiki context for PR review.");
-            if (doc)
-                documents.push(doc);
+        const docs = [
+            ...globalDocuments,
+        ];
+        const fileWikiPath = (0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_2__/* .sourcePathToWikiPath */ .xu)(chunk.filename);
+        const fileDoc = await loadWikiDocument(fileWikiPath, `File-level wiki context for ${chunk.filename}`);
+        if (fileDoc) {
+            docs.push(fileDoc);
         }
-        const matchingFileWikiPath = (0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_1__/* .sourcePathToWikiPath */ .xu)(chunk.filename);
-        const fileDoc = await loadWikiDocument(matchingFileWikiPath, `File-level wiki context for changed file ${chunk.filename}.`);
-        if (fileDoc)
-            documents.push(fileDoc);
-        const uniqueDocuments = dedupeDocuments(documents);
-        enrichedChunks.push({
+        const relevantMemories = await (0,_repositoryMemoryRetriever_js__WEBPACK_IMPORTED_MODULE_1__/* .getRelevantMemories */ .Js)(chunk, _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.review.maxRepositoryMemoriesPerChunk);
+        console.log("[CodeSentinal Memory Retrieval]");
+        _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.debug.enabled && console.log(JSON.stringify({
+            file: chunk.filename,
+            selectedMemories: relevantMemories.map((memory) => ({
+                memoryId: memory.memoryId,
+                section: memory.section,
+                score: memory.score,
+            })),
+        }, null, 2));
+        //********************THIS IS FOR LOGGING and DEBUGGING   PURPOSES DEBUGGING ONLY  */
+        for (const memory of relevantMemories) {
+            docs.push(memoryToDocument(memory));
+        }
+        const uniqueDocs = dedupeDocuments(docs);
+        const wikiContext = buildWikiContextText(uniqueDocs);
+        results.push({
             ...chunk,
-            wikiDocuments: uniqueDocuments,
-            wikiContext: buildWikiContextText(uniqueDocuments),
+            wikiDocuments: uniqueDocs,
+            wikiContext,
         });
     }
-    return enrichedChunks;
+    (0,_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_4__/* .debugJson */ .q)("WIKI_REVIEW_CONTEXT", results);
+    return results;
+}
+
+
+/***/ }),
+
+/***/ 6844:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
+
+
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  i: () => (/* binding */ getWikiUpdateContextForChunks)
+});
+
+// EXTERNAL MODULE: ./dist/wiki/utils/fileHelpers.js
+var fileHelpers = __nccwpck_require__(8560);
+// EXTERNAL MODULE: ./dist/config/runtimeConfig.js
+var runtimeConfig = __nccwpck_require__(989);
+;// CONCATENATED MODULE: ./dist/wiki/wikiImpactAnalyzer.js
+const DATA_CONTRACT_KEYWORDS = [
+    "schema",
+    "type",
+    "types",
+    "interface",
+    "dto",
+    "contract",
+    "validator",
+    "validation",
+];
+const REVIEW_RULE_KEYWORDS = [
+    "review",
+    "prompt",
+    "llm",
+    "comment",
+    "github",
+    "octokit",
+    "reviewer",
+];
+const ARCHITECTURE_KEYWORDS = [
+    "workflow",
+    "pipeline",
+    "action",
+    "integration",
+    "service",
+    "orchestrator",
+    "router",
+    "routing",
+];
+const CODING_RULE_KEYWORDS = [
+    "eslint",
+    "prettier",
+    "config",
+    "tsconfig",
+    "lint",
+];
+const ARCHITECTURE_CHANGE_PATTERNS = [
+    "workflow",
+    "pipeline",
+    "orchestrator",
+    "router",
+    "routing",
+    "service",
+    "integration",
+    "middleware",
+];
+const DATA_CONTRACT_CHANGE_PATTERNS = [
+    "interface",
+    "type",
+    "schema",
+    "validator",
+    "validation",
+    "z.object",
+    "zod",
+];
+const REVIEW_CHANGE_PATTERNS = [
+    "prompt",
+    "review",
+    "comment",
+    "severity",
+    "githubcomment",
+];
+function containsKeyword(value, keywords) {
+    const lower = value.toLowerCase();
+    return keywords.some((keyword) => lower.includes(keyword));
+}
+function addDocument(documents, path, priority, reason) {
+    const existing = documents.get(path);
+    if (!existing) {
+        documents.set(path, {
+            path,
+            priority,
+            reason,
+        });
+        return;
+    }
+    if (priority > existing.priority) {
+        documents.set(path, {
+            path,
+            priority,
+            reason,
+        });
+    }
+}
+function scoreChunkContent(chunk, patterns) {
+    const content = chunk.codeWithContext.toLowerCase();
+    return patterns.some((pattern) => content.includes(pattern.toLowerCase()));
+}
+function analyzeWikiImpact(chunks) {
+    const documents = new Map();
+    const changedFiles = new Set();
+    const reasons = new Set();
+    let affectsArchitecture = false;
+    let affectsDataContracts = false;
+    let affectsReviewRules = false;
+    let affectsCodingRules = false;
+    let affectsRepositoryMemory = false;
+    addDocument(documents, ".codesentinal/wiki/repository-memory.md", 100, "Repository memory is always included for update planning.");
+    for (const chunk of chunks) {
+        const filePath = chunk.filename;
+        changedFiles.add(filePath);
+        const lowerFile = filePath.toLowerCase();
+        const architectureMatch = containsKeyword(lowerFile, ARCHITECTURE_KEYWORDS) ||
+            scoreChunkContent(chunk, ARCHITECTURE_CHANGE_PATTERNS);
+        const dataContractMatch = containsKeyword(lowerFile, DATA_CONTRACT_KEYWORDS) ||
+            scoreChunkContent(chunk, DATA_CONTRACT_CHANGE_PATTERNS);
+        const reviewMatch = containsKeyword(lowerFile, REVIEW_RULE_KEYWORDS) ||
+            scoreChunkContent(chunk, REVIEW_CHANGE_PATTERNS);
+        const codingRulesMatch = containsKeyword(lowerFile, CODING_RULE_KEYWORDS);
+        if (architectureMatch) {
+            affectsArchitecture = true;
+            addDocument(documents, ".codesentinal/wiki/architecture.md", 90, `Architecture-related change detected in ${filePath}`);
+            reasons.add(`Architecture-related change detected in ${filePath}`);
+        }
+        if (dataContractMatch) {
+            affectsDataContracts = true;
+            addDocument(documents, ".codesentinal/wiki/database-schema.md", 85, `Data-contract change detected in ${filePath}`);
+            reasons.add(`Data-contract change detected in ${filePath}`);
+        }
+        if (reviewMatch) {
+            affectsReviewRules = true;
+            addDocument(documents, ".codesentinal/wiki/review-rules.md", 80, `Review-system change detected in ${filePath}`);
+            reasons.add(`Review-system change detected in ${filePath}`);
+        }
+        if (codingRulesMatch) {
+            affectsCodingRules = true;
+            addDocument(documents, ".codesentinal/wiki/coding-rules.md", 70, `Coding-rules related file changed: ${filePath}`);
+            reasons.add(`Coding-rules related file changed: ${filePath}`);
+        }
+        affectsRepositoryMemory = true;
+    }
+    const impactedDocuments = [...documents.values()].sort((a, b) => b.priority - a.priority);
+    return {
+        affectedWikiFiles: impactedDocuments.map((doc) => doc.path),
+        impactedDocuments,
+        affectsArchitecture,
+        affectsDataContracts,
+        affectsReviewRules,
+        affectsCodingRules,
+        affectsRepositoryMemory,
+        changedFiles: [...changedFiles],
+        reasons: [...reasons],
+    };
+}
+
+// EXTERNAL MODULE: ./dist/wiki/repositoryMemoryRetriever.js
+var repositoryMemoryRetriever = __nccwpck_require__(5090);
+// EXTERNAL MODULE: ./dist/wiki/wikiPathMapper.js
+var wikiPathMapper = __nccwpck_require__(2519);
+// EXTERNAL MODULE: ./dist/wiki/utils/debugLogger.js
+var debugLogger = __nccwpck_require__(180);
+;// CONCATENATED MODULE: ./dist/wiki/getWikiUpdateContextForChunks.js
+
+
+
+
+
+
+async function loadWikiDocument(path, reason) {
+    if (path.startsWith(".codesentinal/wiki/") &&
+        !(0,wikiPathMapper/* isSafeWikiMarkdownPath */.eH)(path)) {
+        return null;
+    }
+    try {
+        const content = await (0,fileHelpers/* readTextFile */.Gu)(path);
+        if (!content.trim()) {
+            return null;
+        }
+        return {
+            wikiFilePath: path,
+            reason,
+            content,
+        };
+    }
+    catch {
+        return null;
+    }
+}
+function buildWikiContext(docs) {
+    return docs
+        .map((doc) => `
+---
+WIKI FILE: ${doc.wikiFilePath}
+REASON: ${doc.reason}
+
+${doc.content}
+`)
+        .join("\n");
+}
+function memoryToDocument(memory) {
+    return {
+        wikiFilePath: `.codesentinal/wiki/repository-memory.md#${memory.memoryId}`,
+        reason: `Repository memory match (score=${memory.score})`,
+        content: `
+Section: ${memory.section}
+
+Reason:
+${memory.reason}
+
+Knowledge:
+${memory.knowledge}
+`.trim(),
+    };
+}
+async function getWikiUpdateContextForChunks(chunks) {
+    if (chunks.length === 0) {
+        return [];
+    }
+    const impact = analyzeWikiImpact(chunks);
+    const selectedDocuments = impact.impactedDocuments.slice(0, runtimeConfig/* CONFIG */.P.wiki.maxWikiDocsForUpdatePlanner);
+    const documents = [];
+    const seen = new Set();
+    for (const impactedDoc of selectedDocuments) {
+        if (seen.has(impactedDoc.path)) {
+            continue;
+        }
+        seen.add(impactedDoc.path);
+        const document = await loadWikiDocument(impactedDoc.path, impactedDoc.reason);
+        if (document) {
+            documents.push(document);
+        }
+    }
+    const memoryMap = new Map();
+    for (const chunk of chunks) {
+        const memories = await (0,repositoryMemoryRetriever/* getRelevantMemories */.Js)(chunk, runtimeConfig/* CONFIG */.P.review
+            .maxRepositoryMemoriesPerChunk);
+        (0,debugLogger/* debugJson */.q)("WIKI_UPDATE_MEMORY_RETRIEVAL", {
+            file: chunk.filename,
+            selectedMemories: memories.map((memory) => ({
+                memoryId: memory.memoryId,
+                section: memory.section,
+                score: memory.score,
+            })),
+        });
+        for (const memory of memories) {
+            memoryMap.set(memory.memoryId, memoryToDocument(memory));
+        }
+    }
+    documents.push(...memoryMap.values());
+    const wikiContext = buildWikiContext(documents);
+    (0,debugLogger/* debugJson */.q)("WIKI_UPDATE_CONTEXT", {
+        impactedDocuments: documents.map((doc) => ({
+            path: doc.wikiFilePath,
+            reason: doc.reason,
+        })),
+    });
+    return chunks.map((chunk) => ({
+        ...chunk,
+        wikiDocuments: documents,
+        wikiContext,
+    }));
+}
+
+
+/***/ }),
+
+/***/ 5090:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
+
+/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
+/* harmony export */   Js: () => (/* binding */ getRelevantMemories)
+/* harmony export */ });
+/* unused harmony exports loadRepositoryMemories, scoreMemory */
+/* harmony import */ var _utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(8560);
+
+const REPOSITORY_MEMORY_PATH = ".codesentinal/wiki/repository-memory.md";
+function normalize(value) {
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9_\-/ ]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean);
+}
+function buildChunkText(chunk) {
+    return [
+        chunk.filename,
+        chunk.metadata.language,
+        chunk.metadata.hunkHeader,
+        chunk.addedLines
+            .map((line) => line.content)
+            .join(" "),
+    ].join(" ");
+}
+function buildMemoryText(memory) {
+    return [
+        memory.section,
+        memory.reason,
+        memory.knowledge,
+    ].join(" ");
+}
+function calculateSimilarity(query, document) {
+    const queryTokens = new Set(normalize(query));
+    const documentTokens = new Set(normalize(document));
+    let matches = 0;
+    for (const token of queryTokens) {
+        if (documentTokens.has(token)) {
+            matches++;
+        }
+    }
+    return matches;
+}
+async function loadRepositoryMemories() {
+    let markdown = "";
+    try {
+        markdown =
+            await (0,_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__/* .readTextFile */ .Gu)(REPOSITORY_MEMORY_PATH);
+    }
+    catch {
+        return [];
+    }
+    const memories = [];
+    const sectionRegex = /## (.*?)\n([\s\S]*?)(?=\n## |\s*$)/g;
+    let sectionMatch;
+    while ((sectionMatch =
+        sectionRegex.exec(markdown))) {
+        const section = sectionMatch[1].trim();
+        const sectionBody = sectionMatch[2];
+        const memoryRegex = /### Memory ID:\s*(.*?)\n([\s\S]*?)(?=### Memory ID:|\s*$)/g;
+        let memoryMatch;
+        while ((memoryMatch =
+            memoryRegex.exec(sectionBody))) {
+            const memoryId = memoryMatch[1].trim();
+            const memoryBody = memoryMatch[2];
+            const reasonMatch = memoryBody.match(/\*\*Reason\*\*\s*([\s\S]*?)\*\*Knowledge\*\*/);
+            const knowledgeMatch = memoryBody.match(/\*\*Knowledge\*\*\s*([\s\S]*)/);
+            memories.push({
+                section,
+                memoryId,
+                reason: reasonMatch?.[1]
+                    ?.trim() ?? "",
+                knowledge: knowledgeMatch?.[1]
+                    ?.replace(/\n---$/, "")
+                    .trim() ?? "",
+            });
+        }
+    }
+    return memories;
+}
+function scoreMemory(chunk, memory) {
+    const chunkText = buildChunkText(chunk);
+    const memoryText = buildMemoryText(memory);
+    let score = calculateSimilarity(chunkText, memoryText);
+    const fileName = chunk.filename
+        .split("/")
+        .pop()
+        ?.toLowerCase() ?? "";
+    if (memoryText.includes(fileName)) {
+        score += 5;
+    }
+    if (memory.section ===
+        "Architectural Decisions") {
+        score += 2;
+    }
+    return score;
+}
+async function getRelevantMemories(chunk, limit = 5) {
+    const memories = await loadRepositoryMemories();
+    return memories
+        .map((memory) => ({
+        ...memory,
+        score: scoreMemory(chunk, memory),
+    }))
+        .filter((memory) => memory.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+}
+
+
+/***/ }),
+
+/***/ 180:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
+
+/* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
+/* harmony export */   q: () => (/* binding */ debugJson)
+/* harmony export */ });
+function debugJson(label, data) {
+    console.log(`\n========== ${label} ==========\n`);
+    console.log(JSON.stringify(data, null, 2));
+    console.log(`\n========== END ${label} ==========\n`);
 }
 
 
@@ -79632,47 +80626,301 @@ async function getAllFiles(dir) {
 
 /***/ }),
 
-/***/ 9636:
+/***/ 2736:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 /* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
-/* harmony export */   D: () => (/* binding */ buildWikiMarkdownFileChanges)
+/* harmony export */   Cn: () => (/* binding */ writeFileWiki),
+/* harmony export */   R: () => (/* binding */ writeCoreWikiFile),
+/* harmony export */   l2: () => (/* binding */ prepareWikiFolders),
+/* harmony export */   xu: () => (/* binding */ sourcePathToWikiPath)
 /* harmony export */ });
-/* harmony import */ var _utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(8560);
-/* harmony import */ var _wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(2519);
+/* unused harmony export sourcePathToWikiFileName */
+/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(6928);
+/* harmony import */ var _config_wikiConfig_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(5588);
+/* harmony import */ var _fileHelpers_js__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(8560);
 
 
+
+function sourcePathToWikiFileName(sourcePath) {
+    return sourcePath
+        .replace(/\\/g, "/")
+        .replace(/\//g, "_")
+        .replace(/\./g, "_")
+        .replace(/[^A-Za-z0-9_-]/g, "_") + ".md";
+}
+function sourcePathToWikiPath(sourcePath) {
+    return path__WEBPACK_IMPORTED_MODULE_0__.join(_config_wikiConfig_js__WEBPACK_IMPORTED_MODULE_1__/* .FILE_WIKI_ROOT */ .rD, sourcePathToWikiFileName(sourcePath));
+}
+async function prepareWikiFolders() {
+    await (0,_fileHelpers_js__WEBPACK_IMPORTED_MODULE_2__/* .ensureDir */ .A0)(_config_wikiConfig_js__WEBPACK_IMPORTED_MODULE_1__/* .WIKI_ROOT */ .eb);
+    await (0,_fileHelpers_js__WEBPACK_IMPORTED_MODULE_2__/* .ensureDir */ .A0)(_config_wikiConfig_js__WEBPACK_IMPORTED_MODULE_1__/* .FILE_WIKI_ROOT */ .rD);
+}
+async function writeCoreWikiFile(fileName, content) {
+    const filePath = path__WEBPACK_IMPORTED_MODULE_0__.join(_config_wikiConfig_js__WEBPACK_IMPORTED_MODULE_1__/* .WIKI_ROOT */ .eb, fileName);
+    await (0,_fileHelpers_js__WEBPACK_IMPORTED_MODULE_2__/* .writeTextFile */ .Tl)(filePath, content.trim() + "\n");
+    return filePath;
+}
+async function writeFileWiki(sourcePath, content) {
+    const filePath = sourcePathToWikiPath(sourcePath);
+    await (0,_fileHelpers_js__WEBPACK_IMPORTED_MODULE_2__/* .writeTextFile */ .Tl)(filePath, content.trim() + "\n");
+    return filePath;
+}
+
+
+/***/ }),
+
+/***/ 9626:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
+
+
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  D: () => (/* binding */ buildWikiMarkdownFileChanges)
+});
+
+// EXTERNAL MODULE: external "crypto"
+var external_crypto_ = __nccwpck_require__(6982);
+// EXTERNAL MODULE: ./dist/wiki/utils/fileHelpers.js
+var fileHelpers = __nccwpck_require__(8560);
+// EXTERNAL MODULE: ./dist/wiki/utils/wikiWriter.js
+var wikiWriter = __nccwpck_require__(2736);
+;// CONCATENATED MODULE: ./dist/wiki/wikiRouting.js
+
+const CORE_WIKI_ROUTES = {
+    "architecture": ".codesentinal/wiki/architecture.md",
+    "database-schema": ".codesentinal/wiki/database-schema.md",
+    "review-rules": ".codesentinal/wiki/review-rules.md",
+    "repository-memory": ".codesentinal/wiki/repository-memory.md",
+};
+function routeWikiUpdate(update) {
+    switch (update.target) {
+        case "architecture":
+        case "database-schema":
+        case "review-rules":
+            return {
+                wikiFilePath: CORE_WIKI_ROUTES[update.target],
+                reason: update.reason,
+                contentToAppend: update.contentToAppend,
+            };
+        case "repository-memory":
+            if (!update.memorySection) {
+                console.log("[CodeSentinal Wiki] repository-memory update missing memorySection.");
+                return null;
+            }
+            return {
+                wikiFilePath: CORE_WIKI_ROUTES["repository-memory"],
+                memorySection: update.memorySection,
+                reason: update.reason,
+                contentToAppend: update.contentToAppend,
+            };
+        case "file":
+            if (!update.sourceFile) {
+                console.log("[CodeSentinal Wiki] file target missing sourceFile.");
+                return null;
+            }
+            return {
+                wikiFilePath: (0,wikiWriter/* sourcePathToWikiPath */.xu)(update.sourceFile),
+                reason: update.reason,
+                contentToAppend: update.contentToAppend,
+            };
+        default:
+            return null;
+    }
+}
+
+// EXTERNAL MODULE: ./dist/wiki/utils/debugLogger.js
+var debugLogger = __nccwpck_require__(180);
+// EXTERNAL MODULE: ./dist/config/runtimeConfig.js
+var runtimeConfig = __nccwpck_require__(989);
+;// CONCATENATED MODULE: ./dist/wiki/repositoryMemoryWriter.js
+
+
+function buildMemoryHash(reason, content) {
+    return external_crypto_.createHash("sha256")
+        .update(reason.trim())
+        .update(content.trim())
+        .digest("hex")
+        .slice(0, 12);
+}
+function buildMemoryEntry(reason, content) {
+    const memoryId = buildMemoryHash(reason, content);
+    const timestamp = new Date().toISOString();
+    return `
+### Memory ID: ${memoryId}
+
+Created At: ${timestamp}
+
+**Reason**
+
+${reason.trim()}
+
+**Knowledge**
+
+${content.trim()}
+
+---
+`;
+}
+function memoryEntryExists(markdown, reason, content) {
+    const memoryId = buildMemoryHash(reason, content);
+    return markdown.includes(`Memory ID: ${memoryId}`);
+}
+function findSectionPosition(markdown, section) {
+    const header = `## ${section}`;
+    return markdown.indexOf(header);
+}
+function insertIntoRepositoryMemory(markdown, section, reason, content) {
+    if (memoryEntryExists(markdown, reason, content)) {
+        return markdown;
+    }
+    const position = findSectionPosition(markdown, section);
+    if (position === -1) {
+        return markdown;
+    }
+    const entry = buildMemoryEntry(reason, content);
+    const nextSectionMatch = markdown
+        .slice(position + 1)
+        .match(/\n## /);
+    if (!nextSectionMatch) {
+        return (markdown.trimEnd() +
+            "\n\n" +
+            entry);
+    }
+    const insertPosition = position +
+        1 +
+        nextSectionMatch.index;
+    return (markdown.slice(0, insertPosition) +
+        "\n" +
+        entry +
+        markdown.slice(insertPosition));
+}
+function trimRepositoryMemorySection(markdown, section) {
+    const limit = runtimeConfig/* CONFIG */.P.wiki.maxRepositoryMemoryEntries;
+    const header = `## ${section}`;
+    const start = markdown.indexOf(header);
+    if (start === -1) {
+        return markdown;
+    }
+    const remainder = markdown.slice(start);
+    const nextSectionMatch = remainder
+        .slice(header.length)
+        .match(/\n## /);
+    const end = nextSectionMatch
+        ? start +
+            header.length +
+            nextSectionMatch.index
+        : markdown.length;
+    const sectionContent = markdown.slice(start, end);
+    const entries = sectionContent.split("### Memory ID:");
+    if (entries.length - 1 <= limit) {
+        return markdown;
+    }
+    const preservedHeader = entries[0];
+    const trimmedEntries = entries
+        .slice(-limit)
+        .map((entry) => `### Memory ID:${entry}`);
+    const rebuiltSection = preservedHeader +
+        trimmedEntries.join("");
+    return (markdown.slice(0, start) +
+        rebuiltSection +
+        markdown.slice(end));
+}
+
+;// CONCATENATED MODULE: ./dist/wiki/wikiPatchApplier.js
+
+
+
+
+
+function wikiPatchApplier_buildMemoryHash(reason, content) {
+    return external_crypto_.createHash("sha256")
+        .update(reason.trim())
+        .update(content.trim())
+        .digest("hex")
+        .slice(0, 12);
+}
 function buildAppendBlock(reason, content) {
+    const memoryId = wikiPatchApplier_buildMemoryHash(reason, content);
+    const timestamp = new Date().toISOString();
     return `
 
 ---
 
-## CodeSentinal Wiki Update
+## Repository Memory Entry
 
-**Reason:** ${reason}
+Memory ID: ${memoryId}
+
+Created At: ${timestamp}
+
+### Reason
+
+${reason.trim()}
+
+### Knowledge
 
 ${content.trim()}
 `;
 }
+function extractExistingMemoryIds(markdown) {
+    const ids = new Set();
+    const regex = /Memory ID:\s*([a-zA-Z0-9]+)/g;
+    let match;
+    while ((match = regex.exec(markdown))) {
+        ids.add(match[1]);
+    }
+    return ids;
+}
 async function buildWikiMarkdownFileChanges(plan) {
-    if (!plan.updatesRequired || plan.updates.length === 0) {
+    if (!plan.updatesRequired ||
+        plan.updates.length === 0) {
         return [];
     }
     const changes = [];
     for (const update of plan.updates) {
-        if (!(0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_1__/* .isSafeWikiMarkdownPath */ .eH)(update.wikiFilePath)) {
-            console.log("[CodeSentinal Wiki] Unsafe wiki path skipped:", update.wikiFilePath);
+        const routedUpdate = routeWikiUpdate(update);
+        if (!routedUpdate) {
+            console.log("[CodeSentinal Wiki] Failed to route update.");
             continue;
         }
-        const existingContent = await (0,_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__/* .readTextFile */ .Gu)(update.wikiFilePath);
-        const appendBlock = buildAppendBlock(update.reason, update.contentToAppend);
-        if (existingContent.includes(update.contentToAppend.trim())) {
-            console.log("[CodeSentinal Wiki] Duplicate wiki update skipped:", update.wikiFilePath);
+        let existingContent = "";
+        try {
+            existingContent =
+                await (0,fileHelpers/* readTextFile */.Gu)(routedUpdate.wikiFilePath);
+        }
+        catch (error) {
+            console.log(`[CodeSentinal Wiki] Failed to read ${routedUpdate.wikiFilePath}`);
+            console.log(error);
             continue;
         }
+        const memoryId = wikiPatchApplier_buildMemoryHash(update.reason, update.contentToAppend);
+        const existingIds = extractExistingMemoryIds(existingContent);
+        if (existingIds.has(memoryId)) {
+            console.log(`[CodeSentinal Wiki] Duplicate memory entry skipped: ${routedUpdate.wikiFilePath}`);
+            continue;
+        }
+        let finalContent;
+        if (update.target ===
+            "repository-memory" &&
+            update.memorySection) {
+            finalContent =
+                insertIntoRepositoryMemory(existingContent, update.memorySection, update.reason, update.contentToAppend);
+            finalContent =
+                trimRepositoryMemorySection(finalContent, update.memorySection);
+        }
+        else {
+            const appendBlock = buildAppendBlock(update.reason, update.contentToAppend);
+            finalContent =
+                existingContent.trimEnd() +
+                    appendBlock;
+        }
+        (0,debugLogger/* debugJson */.q)("WIKI_FILE_CHANGE", {
+            path: routedUpdate.wikiFilePath,
+            update,
+        });
         changes.push({
-            path: update.wikiFilePath,
-            content: existingContent.trimEnd() + appendBlock,
+            path: routedUpdate.wikiFilePath,
+            content: finalContent,
         });
     }
     return changes;
@@ -79718,6 +80966,7 @@ function getCoreWikiPathsForReview() {
         `${WIKI_ROOT}/review-rules.md`,
         `${WIKI_ROOT}/coding-rules.md`,
         `${WIKI_ROOT}/database-schema.md`,
+        `${WIKI_ROOT}/repository-memory.md`,
     ];
 }
 
@@ -79735,144 +80984,496 @@ __nccwpck_require__.d(__webpack_exports__, {
 
 // EXTERNAL MODULE: ./node_modules/zod/v4/classic/schemas.js + 16 modules
 var schemas = __nccwpck_require__(2314);
-// EXTERNAL MODULE: ./dist/llm.js + 4 modules
-var llm = __nccwpck_require__(2603);
+// EXTERNAL MODULE: ./dist/wiki/utils/debugLogger.js
+var debugLogger = __nccwpck_require__(180);
+// EXTERNAL MODULE: ./dist/llm.js + 5 modules
+var llm = __nccwpck_require__(9411);
+// EXTERNAL MODULE: ./dist/config/runtimeConfig.js
+var runtimeConfig = __nccwpck_require__(989);
 ;// CONCATENATED MODULE: ./dist/wiki/wikiUpdatePrompt.js
-function buildWikiUpdatePrompt(chunks) {
-    const compactChunks = chunks.map((chunk) => ({
+
+function buildCompactChunk(chunk) {
+    return {
         filename: chunk.filename,
         startLine: chunk.startLine,
         endLine: chunk.endLine,
-        codeWithContext: chunk.codeWithContext,
         addedLines: chunk.addedLines,
         removedLines: chunk.removedLines,
-        metadata: chunk.metadata,
+        codeWithContext: chunk.codeWithContext.slice(0, runtimeConfig/* CONFIG */.P.review.maxContextCharsPerChunk),
         wikiDocuments: chunk.wikiDocuments.map((doc) => ({
             wikiFilePath: doc.wikiFilePath,
             reason: doc.reason,
-            content: doc.content,
         })),
-    }));
+    };
+}
+function buildWikiUpdatePrompt(chunks) {
+    const compactChunks = chunks.map(buildCompactChunk);
     return `
-You are CodeSentinal's LLM Wiki maintenance engine.
+You are CodeSentinal's Repository Memory Engine.
 
-Your task:
-Analyze the pull request changes and decide whether any existing LLM Wiki markdown files need new appended information.
+IMPORTANT
 
-Important:
-- You must ONLY suggest updates to .codesentinal/wiki/**/*.md files.
-- Do NOT suggest changes to source code files.
-- Do NOT suggest updates for formatting-only, whitespace-only, comment-only, or insignificant changes.
-- Do NOT repeat existing wiki content.
-- If the PR does not introduce meaningful architectural, data-contract, review-behavior, workflow, API, security, or file-responsibility changes, return updatesRequired=false.
-- Prefer concise append-only updates.
-- All needed wiki file updates must be returned in ONE JSON response.
+This task is NOT documentation generation.
 
-Return JSON only.
+This task is NOT architecture generation.
 
-Schema:
+This task exists ONLY to maintain long-term repository memory used by future pull request reviews.
+
+Your job:
+
+1. Classify the repository change.
+2. Decide whether repository memory should be updated.
+3. Decide which repository knowledge area is affected.
+4. Produce concise memory updates.
+
+------------------------------------------------
+
+CLASSIFICATION
+
+Before producing updates classify the change.
+
+Allowed categories:
+
+- architecture
+- data-contract
+- review-behavior
+- workflow
+- security
+- repository-memory
+- implementation-detail
+- no-wiki-update
+
+Confidence must be between 0 and 1.
+
+Examples:
+
+0.20 = weak confidence
+
+0.50 = moderate confidence
+
+0.90 = high confidence
+
+1.00 = extremely certain
+
+Reason should explain WHY the category was selected.
+
+------------------------------------------------
+
+REPOSITORY MEMORY PRINCIPLE
+
+Store ONLY information that would help a future reviewer understand future pull requests.
+
+Store:
+
+- architectural decisions
+- workflow decisions
+- integrations
+- security assumptions
+- data contracts
+- review guidance
+- repository constraints
+- migration knowledge
+
+Do NOT store:
+
+- implementation details
+- formatting changes
+- comments
+- variable renames
+- refactors without behavioral impact
+- code that can easily be inferred by reading the source
+
+------------------------------------------------
+
+UPDATE TARGETS
+
+You MUST NOT generate wiki file paths.
+
+You MUST NOT generate markdown filenames.
+
+You MUST generate update targets.
+
+Allowed targets:
+
+- file
+- architecture
+- database-schema
+- review-rules
+- repository-memory
+
+Routing is handled by the system.
+
+------------------------------------------------
+
+FILE TARGET
+
+Use target="file" when repository memory belongs to a specific source file.
+
+Provide:
+
 {
+  "target": "file",
+  "sourceFile": "src/example.ts"
+}
+
+------------------------------------------------
+
+ARCHITECTURE TARGET
+
+Use target="architecture" when architecture-level knowledge changed.
+
+------------------------------------------------
+
+DATABASE TARGET
+
+Use target="database-schema" when:
+
+- schemas changed
+- interfaces changed
+- contracts changed
+- DTOs changed
+- validation rules changed
+
+------------------------------------------------
+
+REVIEW RULES TARGET
+
+Use target="review-rules" when:
+
+- reviewer behavior changed
+- review workflow changed
+- LLM review behavior changed
+- review guidance changed
+
+------------------------------------------------
+
+REPOSITORY MEMORY TARGET
+
+Use target="repository-memory" for durable repository knowledge.
+
+Allowed memory sections:
+
+- Architectural Decisions
+- Known Constraints
+- Migration Notes
+- Review Findings
+- Integration Knowledge
+
+When target="repository-memory"
+you MUST provide memorySection.
+
+Example:
+
+{
+  "target": "repository-memory",
+  "memorySection": "Architectural Decisions"
+}
+
+------------------------------------------------
+
+CONTENT RULES
+
+contentToAppend must be:
+
+- concise
+- future-review useful
+- repository memory
+- durable
+
+BAD:
+
+"Added a function."
+
+BAD:
+
+"Created helper method."
+
+GOOD:
+
+"Introduced runtime configuration driven wiki batching. Future reviewers should ensure batching limits remain synchronized across planner, context builder, and patch application logic."
+
+GOOD:
+
+"Repository review workflow now depends on wiki classification metadata. Future changes must preserve compatibility between planner schema and review pipeline."
+
+------------------------------------------------
+
+UPDATE RULES
+
+Return updates ONLY when PR introduces:
+
+- architectural change
+- workflow change
+- security change
+- API contract change
+- integration change
+- responsibility change
+- repository constraint
+- migration requirement
+
+Do NOT generate updates for:
+
+- formatting
+- comments
+- refactors
+- renames
+- lint fixes
+- variable renaming
+- implementation-only details
+
+------------------------------------------------
+
+LIMITS
+
+Never return more than ${runtimeConfig/* CONFIG */.P.wiki.maxFileUpdatesPerRun} updates.
+
+------------------------------------------------
+
+RETURN JSON ONLY
+
+{
+  "classification": {
+    "category": "architecture",
+    "confidence": 0.91,
+    "reason": "Workflow execution path changed."
+  },
+
   "updatesRequired": true,
-  "summary": "Short summary of why wiki updates are needed.",
+
+  "summary": "Short summary.",
+
   "updates": [
     {
-      "wikiFilePath": ".codesentinal/wiki/files/src_index_ts.md",
-      "changeType": "append",
-      "reason": "Why this wiki file should be updated.",
-      "contentToAppend": "Markdown content to append."
+      "target": "file",
+      "sourceFile": "src/wiki/github.ts",
+      "reason": "Repository responsibility changed.",
+      "contentToAppend": "Future reviewers should verify..."
+    },
+    {
+      "target": "repository-memory",
+      "memorySection": "Architectural Decisions",
+      "reason": "Repository architecture evolved.",
+      "contentToAppend": "Wiki routing now uses deterministic target resolution."
     }
   ]
 }
 
-If no update is needed:
+If no update required:
+
 {
+  "classification": {
+    "category": "no-wiki-update",
+    "confidence": 1,
+    "reason": "No durable repository memory change detected."
+  },
+
   "updatesRequired": false,
-  "summary": "No significant wiki update required.",
+
+  "summary": "No repository memory update required.",
+
   "updates": []
 }
 
-Pull request chunks with related wiki context:
+Changed PR chunks:
+
 ${JSON.stringify(compactChunks, null, 2)}
 `;
 }
 
-// EXTERNAL MODULE: ./dist/wiki/wikiPathMapper.js
-var wikiPathMapper = __nccwpck_require__(2519);
 ;// CONCATENATED MODULE: ./dist/wiki/wikiUpdatePlanner.js
 
 
 
 
+
 const wikiUpdatePlanSchema = schemas/* object */.Ik({
+    classification: schemas/* object */.Ik({
+        category: schemas/* enum */.k5([
+            "architecture",
+            "data-contract",
+            "review-behavior",
+            "workflow",
+            "security",
+            "repository-memory",
+            "implementation-detail",
+            "no-wiki-update",
+        ]),
+        confidence: schemas/* number */.ai().min(0).max(1),
+        reason: schemas/* string */.Yj(),
+    }),
     updatesRequired: schemas/* boolean */.zM(),
     summary: schemas/* string */.Yj(),
     updates: schemas/* array */.YO(schemas/* object */.Ik({
-        wikiFilePath: schemas/* string */.Yj(),
-        changeType: schemas/* literal */.eu("append"),
+        target: schemas/* enum */.k5([
+            "file",
+            "architecture",
+            "database-schema",
+            "review-rules",
+            "repository-memory",
+        ]),
+        sourceFile: schemas/* string */.Yj().optional(),
+        memorySection: schemas/* enum */.k5([
+            "Architectural Decisions",
+            "Known Constraints",
+            "Migration Notes",
+            "Review Findings",
+            "Integration Knowledge",
+        ])
+            .optional(),
         reason: schemas/* string */.Yj(),
         contentToAppend: schemas/* string */.Yj(),
     })),
 });
+function emptyClassification() {
+    return {
+        category: "no-wiki-update",
+        confidence: 1,
+        reason: "No valid wiki update classification available.",
+    };
+}
+function emptyPlan(summary) {
+    return {
+        classification: emptyClassification(),
+        updatesRequired: false,
+        summary,
+        updates: [],
+    };
+}
 function extractJson(raw) {
     const trimmed = raw.trim();
     if (trimmed.startsWith("```json")) {
-        return trimmed.replace(/^```json/i, "").replace(/```$/i, "").trim();
+        return trimmed
+            .replace(/^```json/i, "")
+            .replace(/```$/i, "")
+            .trim();
     }
     if (trimmed.startsWith("```")) {
-        return trimmed.replace(/^```/i, "").replace(/```$/i, "").trim();
+        return trimmed
+            .replace(/^```/i, "")
+            .replace(/```$/i, "")
+            .trim();
     }
     return trimmed;
 }
 function sanitizePlan(plan) {
     const safeUpdates = plan.updates.filter((update) => {
-        if (!(0,wikiPathMapper/* isSafeWikiMarkdownPath */.eH)(update.wikiFilePath))
+        if (!update.contentToAppend.trim()) {
             return false;
-        if (!update.contentToAppend.trim())
+        }
+        if (update.target === "file" &&
+            !update.sourceFile) {
             return false;
+        }
+        if (update.target ===
+            "repository-memory" &&
+            !update.memorySection) {
+            return false;
+        }
         return true;
     });
     return {
-        updatesRequired: plan.updatesRequired && safeUpdates.length > 0,
+        classification: plan.classification,
+        updatesRequired: plan.updatesRequired &&
+            safeUpdates.length > 0,
         summary: safeUpdates.length > 0
             ? plan.summary
             : "No safe wiki markdown updates required.",
         updates: safeUpdates,
     };
 }
-async function planWikiMarkdownUpdates(chunks) {
-    if (chunks.length === 0) {
-        return {
-            updatesRequired: false,
-            summary: "No chunks available for wiki update planning.",
-            updates: [],
-        };
+function chunkArray(items, size) {
+    const result = [];
+    for (let i = 0; i < items.length; i += size) {
+        result.push(items.slice(i, i + size));
     }
+    return result;
+}
+function deduplicateUpdates(updates) {
+    const map = new Map();
+    for (const update of updates) {
+        const key = JSON.stringify({
+            target: update.target,
+            sourceFile: update.sourceFile ?? "",
+            memorySection: update.memorySection ?? "",
+            content: update.contentToAppend
+                .trim()
+                .toLowerCase(),
+        });
+        if (!map.has(key)) {
+            map.set(key, update);
+        }
+    }
+    return [...map.values()];
+}
+async function executeSingleBatch(chunks) {
     const prompt = buildWikiUpdatePrompt(chunks);
     const raw = await (0,llm/* generateTextWithGemini */.Y)(prompt);
+    (0,debugLogger/* debugJson */.q)("WIKI_PLANNER_PROMPT", prompt);
     let parsed;
     try {
         parsed = JSON.parse(extractJson(raw));
     }
     catch {
-        console.log("[CodeSentinal Wiki] Invalid JSON from wiki update planner:");
-        console.log(raw);
-        return {
-            updatesRequired: false,
-            summary: "Wiki update planner returned invalid JSON.",
-            updates: [],
-        };
+        console.log("[CodeSentinal Wiki] Invalid JSON from planner.");
+        return emptyPlan("Planner returned invalid JSON.");
     }
     const validated = wikiUpdatePlanSchema.safeParse(parsed);
     if (!validated.success) {
-        console.log("[CodeSentinal Wiki] Wiki update plan schema mismatch:");
+        console.log("[CodeSentinal Wiki] Planner schema mismatch.");
         console.log(validated.error);
+        return emptyPlan("Planner response failed schema validation.");
+    }
+    return sanitizePlan(validated.data);
+}
+async function planWikiMarkdownUpdates(chunks) {
+    if (chunks.length === 0) {
+        return emptyPlan("No chunks available for wiki update planning.");
+    }
+    const batchSize = runtimeConfig/* CONFIG */.P.wiki.maxFilesPerBatch;
+    const chunkBatches = chunkArray(chunks, batchSize);
+    console.log(`[CodeSentinal Wiki] Processing ${chunks.length} chunks in ${chunkBatches.length} batch(es).`);
+    const allUpdates = [];
+    const summaries = [];
+    let highestClassification = emptyClassification();
+    for (let batchIndex = 0; batchIndex <
+        chunkBatches.length; batchIndex++) {
+        const batch = chunkBatches[batchIndex];
+        console.log(`[CodeSentinal Wiki] Running planner batch ${batchIndex + 1}/${chunkBatches.length}`);
+        try {
+            const result = await executeSingleBatch(batch);
+            summaries.push(result.summary);
+            allUpdates.push(...result.updates);
+            if (result.classification
+                .confidence >
+                highestClassification.confidence) {
+                highestClassification =
+                    result.classification;
+            }
+        }
+        catch (error) {
+            console.log(`[CodeSentinal Wiki] Planner batch failed: ${batchIndex + 1}`);
+            console.log(error);
+        }
+    }
+    if (highestClassification.confidence <
+        runtimeConfig/* CONFIG */.P.wiki.minMemoryConfidence) {
         return {
+            classification: highestClassification,
             updatesRequired: false,
-            summary: "Wiki update planner response did not match schema.",
+            summary: `Skipped wiki update because confidence ${highestClassification.confidence} is below threshold ${runtimeConfig/* CONFIG */.P.wiki.minMemoryConfidence}.`,
             updates: [],
         };
     }
-    return sanitizePlan(validated.data);
+    const dedupedUpdates = deduplicateUpdates(allUpdates).slice(0, runtimeConfig/* CONFIG */.P.wiki.maxFileUpdatesPerRun);
+    return {
+        classification: dedupedUpdates.length > 0
+            ? highestClassification
+            : emptyClassification(),
+        updatesRequired: dedupedUpdates.length > 0,
+        summary: summaries.join(" | ") ||
+            "No wiki updates required.",
+        updates: dedupedUpdates,
+    };
 }
 
 

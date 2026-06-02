@@ -4,6 +4,10 @@ import { z } from "zod";
 import { buildReviewPrompt } from "./prompt.js";
 import {CONFIG} from "./config/runtimeConfig.js";
 import type { ReviewChunkWithWikiContext } from "./wiki/wikiReviewTypes.js";
+import { debugJson } from "./wiki/utils/debugLogger.js";
+import {
+  deduplicateReviews,
+} from "./wiki/reviewDeduplicator.js";
 dotenv.config();
 
 let ai: GoogleGenAI | null = null;
@@ -20,16 +24,54 @@ async function executeWithRetry<T>(
   while (true) {
     try {
       return await operation();
-    } catch (error) {
+    } catch (error: any) {
       attempt++;
 
-      if (attempt >= CONFIG.llm.maxRetries) {
+      const status =
+        error?.status ??
+        error?.response?.status;
+
+      const message =
+        String(
+          error?.message ?? ""
+        ).toLowerCase();
+
+      const retryable =
+        status === 429 ||
+        status === 500 ||
+        status === 502 ||
+        status === 503 ||
+        status === 504 ||
+        message.includes(
+          "timeout"
+        ) ||
+        message.includes(
+          "deadline"
+        ) ||
+        message.includes(
+          "rate limit"
+        ) ||
+        message.includes(
+          "quota"
+        );
+
+      if (!retryable) {
+        throw error;
+      }
+
+      if (
+        attempt >=
+        CONFIG.llm.maxRetries
+      ) {
         throw error;
       }
 
       const delay =
         CONFIG.llm.retryDelayMs *
-        Math.pow(2, attempt - 1);
+        Math.pow(
+          2,
+          attempt - 1
+        );
 
       console.log(
         `[CodeSentinal LLM] Retry ${attempt}/${CONFIG.llm.maxRetries} after ${delay}ms`
@@ -182,7 +224,8 @@ export async function reviewChunksWithLLM(
     return { reviews: [] };
   }
 
-  const prompt = buildReviewPrompt(reviewChunks);
+  const prompt =
+    buildReviewPrompt(reviewChunks);
 
   await waitBeforeGeminiCall();
 
@@ -191,7 +234,9 @@ export async function reviewChunksWithLLM(
       withTimeout(
         getGeminiClient().models.generateContent({
           model: CONFIG.llm.reviewModel,
+
           contents: prompt,
+
           config: {
             responseMimeType:
               "application/json",
@@ -203,31 +248,62 @@ export async function reviewChunksWithLLM(
       )
     );
 
-  const rawText = response.text ?? '{"reviews":[]}';
+  const rawText =
+    response.text ??
+    '{"reviews":[]}';
 
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(rawText);
+    parsed =
+      JSON.parse(rawText);
+      debugJson(
+  "REVIEW_RESPONSE",
+  parsed
+);
   } catch {
-    console.log("Gemini returned invalid JSON:");
+    console.log(
+      "Gemini returned invalid JSON:"
+    );
+
     console.log(rawText);
+
     return { reviews: [] };
   }
 
-  const validated = llmReviewSchema.safeParse(parsed);
+  const validated =
+    llmReviewSchema.safeParse(
+      parsed
+    );
 
   if (!validated.success) {
-    console.log("Gemini JSON did not match expected schema:");
-    console.log(validated.error);
+    console.log(
+      "Gemini JSON did not match expected schema:"
+    );
+
+    console.log(
+      validated.error
+    );
+
     return { reviews: [] };
   }
 
-  console.log("success from llm");
+  const deduplicatedReviews =
+    deduplicateReviews(
+      validated.data.reviews
+    );
+
+  console.log(
+    `[CodeSentinal] Reviews before dedupe: ${validated.data.reviews.length}`
+  );
+
+  console.log(
+    `[CodeSentinal] Reviews after dedupe: ${deduplicatedReviews.length}`
+  );
 
   return {
     reviews:
-      validated.data.reviews.slice(
+      deduplicatedReviews.slice(
         0,
         CONFIG.github.maxInlineComments
       ),

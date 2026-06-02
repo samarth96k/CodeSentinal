@@ -16,7 +16,7 @@ export type RoutedWikiUpdate = {
 };
 
 const CORE_WIKI_ROUTES = {
-  architecture:
+  "architecture":
     ".codesentinal/wiki/architecture.md",
 
   "database-schema":

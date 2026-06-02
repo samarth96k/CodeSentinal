@@ -89,8 +89,7 @@ export async function initWiki(
     const batch = batches[batchIndex];
 
     console.log(
-      `[CodeSentinal Wiki] Processing batch ${
-        batchIndex + 1
+      `[CodeSentinal Wiki] Processing batch ${batchIndex + 1
       }/${batches.length} (${batch.length} files)`
     );
 
@@ -135,35 +134,71 @@ export async function initWiki(
     fileName: string;
     generate: () => Promise<string>;
   }> = [
-    {
-      fileName: "architecture.md",
-      generate: () =>
-        generateArchitectureWithLLM(analysis),
-    },
-    {
-      fileName: "database-schema.md",
-      generate: () =>
-        generateDataContractsWithLLM(analysis),
-    },
-    {
-      fileName: "coding-rules.md",
-      generate: () =>
-        generateCodingRulesWithLLM(analysis),
-    },
-    {
-      fileName: "review-rules.md",
-      generate: () =>
-        generateReviewRulesWithLLM(analysis),
-    },
-    {
-      fileName: "index.md",
-      generate: () =>
-        generateIndexWithLLM(
-          analysis,
-          fileEntries
-        ),
-    },
-  ];
+      {
+        fileName: "architecture.md",
+        generate: () =>
+          generateArchitectureWithLLM(analysis),
+      },
+      {
+        fileName: "database-schema.md",
+        generate: () =>
+          generateDataContractsWithLLM(analysis),
+      },
+      {
+        fileName: "coding-rules.md",
+        generate: () =>
+          generateCodingRulesWithLLM(analysis),
+      },
+      {
+        fileName: "review-rules.md",
+        generate: () =>
+          generateReviewRulesWithLLM(analysis),
+      },
+      {
+        fileName: "index.md",
+        generate: () =>
+          generateIndexWithLLM(
+            analysis,
+            fileEntries
+          ),
+      },
+      {
+        fileName: "repository-memory.md",
+        generate: async () => `
+# Repository Memory
+
+This file stores long-term repository knowledge.
+
+## Architectural Decisions
+
+Document major architectural decisions.
+
+---
+
+## Known Constraints
+
+Document repository limitations.
+
+---
+
+## Migration Notes
+
+Document migrations and compatibility concerns.
+
+---
+
+## Review Findings
+
+Document recurring review findings and lessons.
+
+---
+
+## Integration Knowledge
+
+Document external integrations, workflows, and cross-system behavior.
+`,
+      }
+    ];
 
   for (const core of coreGenerators) {
     try {

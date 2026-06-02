@@ -1,11 +1,11 @@
 import { readTextFile } from "./utils/fileHelpers.js";
-
+import {getRelevantMemories,} from "./repositoryMemoryRetriever.js";
 import {
   getCoreWikiPathsForReview,
   isSafeWikiMarkdownPath,
   sourcePathToWikiPath,
 } from "./wikiPathMapper.js";
-
+import { debugJson } from "./utils/debugLogger.js";
 import { CONFIG } from "../config/runtimeConfig.js";
 
 import type {
@@ -76,6 +76,32 @@ function dedupeDocuments(
   });
 }
 
+function memoryToDocument(
+  memory: Awaited<
+    ReturnType<
+      typeof getRelevantMemories
+    >
+  >[number]
+): WikiContextDocument {
+  return {
+    wikiFilePath:
+      `.codesentinal/wiki/repository-memory.md#${memory.memoryId}`,
+
+    reason:
+      `Repository memory match (score=${memory.score})`,
+
+    content: `
+Section: ${memory.section}
+
+Reason:
+${memory.reason}
+
+Knowledge:
+${memory.knowledge}
+`.trim(),
+  };
+}
+
 function buildWikiContextText(
   documents: WikiContextDocument[]
 ): string {
@@ -123,16 +149,16 @@ export async function getWikiContextForChunks(
   const globalDocuments =
     await loadGlobalWikiDocuments();
 
-  const globalContext =
-    buildWikiContextText(
-      globalDocuments
-    );
+      // const globalContext =
+      //   buildWikiContextText(
+      //     globalDocuments
+      //   );
 
-  const results:
-    ReviewChunkWithWikiContext[] = [];
+      const results:
+        ReviewChunkWithWikiContext[] = [];
 
-  for (const chunk of chunks) {
-    const docs: WikiContextDocument[] = [
+      for (const chunk of chunks) {
+          const docs: WikiContextDocument[] = [
       ...globalDocuments,
     ];
 
@@ -151,8 +177,58 @@ export async function getWikiContextForChunks(
       docs.push(fileDoc);
     }
 
+    const relevantMemories =
+      await getRelevantMemories(
+        chunk,
+        CONFIG.review.maxRepositoryMemoriesPerChunk
+      );
+
+      console.log(
+  "[CodeSentinal Memory Retrieval]"
+);
+
+    CONFIG.debug.enabled && console.log(
+      JSON.stringify(
+        {
+          file:
+            chunk.filename,
+
+          selectedMemories:
+            relevantMemories.map(
+              (memory) => ({
+                memoryId:
+                  memory.memoryId,
+
+                section:
+                  memory.section,
+
+                score:
+                  memory.score,
+              })
+            ),
+        },
+        null,
+        2
+      )
+    );
+
+//********************THIS IS FOR LOGGING and DEBUGGING   PURPOSES DEBUGGING ONLY  */
+
+    for (const memory of relevantMemories) {
+      docs.push(
+        memoryToDocument(
+          memory
+        )
+      );
+    }
+
     const uniqueDocs =
       dedupeDocuments(docs);
+
+    const wikiContext =
+      buildWikiContextText(
+        uniqueDocs
+      );
 
     results.push({
       ...chunk,
@@ -160,12 +236,12 @@ export async function getWikiContextForChunks(
       wikiDocuments:
         uniqueDocs,
 
-      wikiContext:
-        globalContext +
-        "\n\n" +
-        (fileDoc?.content ?? ""),
+      wikiContext,
     });
   }
-
+  debugJson(
+  "WIKI_REVIEW_CONTEXT",
+  results
+);
   return results;
 }

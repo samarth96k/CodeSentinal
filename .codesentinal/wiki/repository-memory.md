@@ -14,18 +14,18 @@ Document repository limitations.
 
 ---
 
-## Historical Context
-
-Document important repository history.
-
----
-
 ## Migration Notes
 
 Document migrations and compatibility concerns.
 
 ---
 
-## Reviewer Memory
+## Review Findings
 
-Document recurring review concerns that future reviewers should know.
+Document recurring review findings and lessons.
+
+---
+
+## Integration Knowledge
+
+Document external integrations, workflows, and cross-system behavior.

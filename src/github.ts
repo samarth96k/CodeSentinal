@@ -2,9 +2,11 @@ import dotenv from "dotenv";
 import { Octokit } from "octokit";
 import * as github from "@actions/github";
 import type { WikiMarkdownFileChange } from "./wiki/wikiReviewTypes.js";
-
+import {
+  executeGitHubWithRetry,
+} from "./githubRetry.js";
 dotenv.config();
-
+import { debugJson } from "./wiki/utils/debugLogger.js";
 export const owner = github.context.repo.owner;
 export const repo = github.context.repo.repo;
 
@@ -92,18 +94,28 @@ export async function postComments(
 
   for (const review of result.reviews) {
     try {
-      const res = await getOctokitClient().request(
-        "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
-        {
-          owner,
-          repo,
-          pull_number: pullNumber,
-          commit_id,
-          ...review.githubComment,
-          headers: { "X-GitHub-Api-Version": "2022-11-28" },
-        }
-      );
-
+      const res =
+        await executeGitHubWithRetry(
+          () =>
+            getOctokitClient().request(
+              "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+              {
+                owner,
+                repo,
+                pull_number: pullNumber,
+                commit_id,
+                ...review.githubComment,
+                headers: {
+                  "X-GitHub-Api-Version":
+                    "2022-11-28",
+                },
+              }
+            )
+        );
+        debugJson(
+  "GITHUB_COMMENT",
+  review.githubComment
+);
       responses.push({
         success: true,
         path: review.githubComment.path,
@@ -158,16 +170,23 @@ async function getExistingFileSha(params: {
   ref: string;
 }): Promise<string | undefined> {
   try {
-    const response = await getOctokitClient().request(
-      "GET /repos/{owner}/{repo}/contents/{path}",
-      {
-        owner: params.owner,
-        repo: params.repo,
-        path: params.path,
-        ref: params.ref,
-        headers: { "X-GitHub-Api-Version": "2022-11-28" },
-      }
-    );
+    const response =
+      await executeGitHubWithRetry(
+        () =>
+          getOctokitClient().request(
+            "GET /repos/{owner}/{repo}/contents/{path}",
+            {
+              owner: params.owner,
+              repo: params.repo,
+              path: params.path,
+              ref: params.ref,
+              headers: {
+                "X-GitHub-Api-Version":
+                  "2022-11-28",
+              },
+            }
+          )
+      );
 
     if (Array.isArray(response.data)) return undefined;
     return "sha" in response.data ? response.data.sha : undefined;
@@ -221,19 +240,33 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
         ref: branch,
       });
 
-      const response = await getOctokitClient().request(
-        "PUT /repos/{owner}/{repo}/contents/{path}",
-        {
-          owner,
-          repo,
-          path: change.path,
-          message: commitMessage,
-          content: Buffer.from(change.content, "utf-8").toString("base64"),
-          branch,
-          sha,
-          headers: { "X-GitHub-Api-Version": "2022-11-28" },
-        }
-      );
+      const response =
+        await executeGitHubWithRetry(
+          () =>
+            getOctokitClient().request(
+              "PUT /repos/{owner}/{repo}/contents/{path}",
+              {
+                owner,
+                repo,
+                path: change.path,
+                message:
+                  commitMessage,
+                content:
+                  Buffer.from(
+                    change.content,
+                    "utf-8"
+                  ).toString(
+                    "base64"
+                  ),
+                branch,
+                sha,
+                headers: {
+                  "X-GitHub-Api-Version":
+                    "2022-11-28",
+                },
+              }
+            )
+        );
 
       results.push({
         path: change.path,

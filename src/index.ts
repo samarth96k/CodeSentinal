@@ -9,6 +9,7 @@ import {
   commitWikiMarkdownChangesToPullRequestBranch,
 } from "./github.js";
 import type { ReviewChunkWithWikiContext } from "./wiki/wikiReviewTypes.js";
+import { debugJson } from "./wiki/utils/debugLogger.js";
 
 import { parsePatchLibrary } from "./diffParser.js";
 import { chunkingParsed, type ReviewChunk } from "./chunk.js";
@@ -136,7 +137,10 @@ function shouldUseWikiContext(pr: typeof pullRequest): boolean {
 async function buildReviewChunks(): Promise<ReviewChunk[]> {
   const files = await getPullRequestFiles(pullNumber);
   const allChunks: ReviewChunk[] = [];
-
+  debugJson(
+  "REVIEW_CHUNKS",
+  chunks
+);
   for (const file of files) {
     if (!file.patch) {
       console.log("SKIPPED: No patch found for", file.filename);

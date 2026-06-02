@@ -1,5 +1,5 @@
 import { z } from "zod";
-
+import { debugJson } from "./utils/debugLogger.js";
 import { generateTextWithGemini } from "../llm.js";
 import { CONFIG } from "../config/runtimeConfig.js";
 
@@ -77,11 +77,8 @@ function emptyPlan(
 ): WikiUpdatePlan {
   return {
     classification: emptyClassification(),
-
     updatesRequired: false,
-
     summary,
-
     updates: [],
   };
 }
@@ -111,9 +108,7 @@ function sanitizePlan(
 ): WikiUpdatePlan {
   const safeUpdates = plan.updates.filter(
     (update) => {
-      if (
-        !update.contentToAppend.trim()
-      ) {
+      if (!update.contentToAppend.trim()) {
         return false;
       }
 
@@ -183,12 +178,17 @@ function deduplicateUpdates(
   for (const update of updates) {
     const key = JSON.stringify({
       target: update.target,
+
       sourceFile:
-        update.sourceFile,
+        update.sourceFile ?? "",
+
       memorySection:
-        update.memorySection,
+        update.memorySection ?? "",
+
       content:
-        update.contentToAppend.trim(),
+        update.contentToAppend
+          .trim()
+          .toLowerCase(),
     });
 
     if (!map.has(key)) {
@@ -210,6 +210,10 @@ async function executeSingleBatch(
       prompt
     );
 
+    debugJson(
+  "WIKI_PLANNER_PROMPT",
+  prompt
+);
   let parsed: unknown;
 
   try {
@@ -275,7 +279,7 @@ export async function planWikiMarkdownUpdates(
 
   const summaries: string[] = [];
 
-  let highestConfidence =
+  let highestClassification =
     emptyClassification();
 
   for (
@@ -308,9 +312,9 @@ export async function planWikiMarkdownUpdates(
       if (
         result.classification
           .confidence >
-        highestConfidence.confidence
+        highestClassification.confidence
       ) {
-        highestConfidence =
+        highestClassification =
           result.classification;
       }
     } catch (error) {
@@ -322,15 +326,35 @@ export async function planWikiMarkdownUpdates(
     }
   }
 
+  if (
+    highestClassification.confidence <
+    CONFIG.wiki.minMemoryConfidence
+  ) {
+    return {
+      classification:
+        highestClassification,
+
+      updatesRequired: false,
+
+      summary:
+        `Skipped wiki update because confidence ${highestClassification.confidence} is below threshold ${CONFIG.wiki.minMemoryConfidence}.`,
+
+      updates: [],
+    };
+  }
+
   const dedupedUpdates =
     deduplicateUpdates(
       allUpdates
+    ).slice(
+      0,
+      CONFIG.wiki.maxFileUpdatesPerRun
     );
 
   return {
     classification:
       dedupedUpdates.length > 0
-        ? highestConfidence
+        ? highestClassification
         : emptyClassification(),
 
     updatesRequired:
