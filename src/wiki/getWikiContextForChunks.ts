@@ -11,6 +11,7 @@ import { CONFIG } from "../config/runtimeConfig.js";
 import type {
   ReviewChunkWithWikiContext,
   WikiContextDocument,
+  ReviewPromptBundle
 } from "./wikiReviewTypes.js";
 
 import type { ReviewChunk } from "../chunk.js";
@@ -145,22 +146,28 @@ async function loadGlobalWikiDocuments(): Promise<
 
 export async function getWikiContextForChunks(
   chunks: ReviewChunk[]
-): Promise<ReviewChunkWithWikiContext[]> {
+): Promise<ReviewPromptBundle> {
+  if (chunks.length === 0) {
+    return {
+      globalContext: "",
+      chunks: [],
+    };
+  }
+
   const globalDocuments =
     await loadGlobalWikiDocuments();
 
-      // const globalContext =
-      //   buildWikiContextText(
-      //     globalDocuments
-      //   );
+  const globalContext =
+    buildWikiContextText(
+      globalDocuments
+    );
 
-      const results:
-        ReviewChunkWithWikiContext[] = [];
+  const results:
+    ReviewChunkWithWikiContext[] = [];
 
-      for (const chunk of chunks) {
-          const docs: WikiContextDocument[] = [
-      ...globalDocuments,
-    ];
+  for (const chunk of chunks) {
+    const docs: WikiContextDocument[] =
+      [];
 
     const fileWikiPath =
       sourcePathToWikiPath(
@@ -183,36 +190,31 @@ export async function getWikiContextForChunks(
         CONFIG.review.maxRepositoryMemoriesPerChunk
       );
 
+    CONFIG.debug.enabled &&
       console.log(
-  "[CodeSentinal Memory Retrieval]"
-);
+        JSON.stringify(
+          {
+            file:
+              chunk.filename,
 
-    CONFIG.debug.enabled && console.log(
-      JSON.stringify(
-        {
-          file:
-            chunk.filename,
+            selectedMemories:
+              relevantMemories.map(
+                (memory) => ({
+                  memoryId:
+                    memory.memoryId,
 
-          selectedMemories:
-            relevantMemories.map(
-              (memory) => ({
-                memoryId:
-                  memory.memoryId,
+                  section:
+                    memory.section,
 
-                section:
-                  memory.section,
-
-                score:
-                  memory.score,
-              })
-            ),
-        },
-        null,
-        2
-      )
-    );
-
-//********************THIS IS FOR LOGGING and DEBUGGING   PURPOSES DEBUGGING ONLY  */
+                  score:
+                    memory.score,
+                })
+              ),
+          },
+          null,
+          2
+        )
+      );
 
     for (const memory of relevantMemories) {
       docs.push(
@@ -225,7 +227,7 @@ export async function getWikiContextForChunks(
     const uniqueDocs =
       dedupeDocuments(docs);
 
-    const wikiContext =
+    const chunkSpecificContext =
       buildWikiContextText(
         uniqueDocs
       );
@@ -236,12 +238,38 @@ export async function getWikiContextForChunks(
       wikiDocuments:
         uniqueDocs,
 
-      wikiContext,
+      wikiContext:
+        chunkSpecificContext,
     });
   }
+
   debugJson(
-  "WIKI_REVIEW_CONTEXT",
-  results
-);
-  return results;
+    "WIKI_REVIEW_CONTEXT_STATS",
+    {
+      chunks:
+        results.length,
+
+      globalDocuments:
+        globalDocuments.length,
+
+      globalContextChars:
+        globalContext.length,
+
+      chunkContexts:
+        results.map(
+          (chunk) => ({
+            file:
+              chunk.filename,
+
+            contextChars:
+              chunk.wikiContext.length,
+          })
+        ),
+    }
+  );
+
+  return {
+    globalContext,
+    chunks: results,
+  };
 }

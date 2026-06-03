@@ -57055,6 +57055,10 @@ async function buildReviewChunks() {
             console.log("SKIPPED: No patch found for", file.filename);
             continue;
         }
+        if (file.filename.startsWith(".codesentinal/wiki/")) {
+            console.log(`[CodeSentinal] Skipping wiki file review: ${file.filename}`);
+            continue;
+        }
         const parsed = (0,_diffParser_js__WEBPACK_IMPORTED_MODULE_5__/* .parsePatchLibrary */ .l6)(file.patch);
         const processedParsed = (0,_prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_12__/* .preprocessParsedFiles */ .x)(parsed, file.filename);
         if (processedParsed.length === 0) {
@@ -57062,28 +57066,35 @@ async function buildReviewChunks() {
             continue;
         }
         const chunks = (0,_chunk_js__WEBPACK_IMPORTED_MODULE_6__/* .chunkingParsed */ .n)(processedParsed, file.filename);
-        (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("REVIEW_CHUNKS", chunks);
+        (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("REVIEW_CHUNK_STATS", {
+            file: file.filename,
+            chunks: chunks.length,
+        });
         allChunks.push(...chunks);
     }
+    console.log(`[CodeSentinal] Total review chunks: ${allChunks.length}`);
     return allChunks;
 }
 async function runReviewMode(chunks) {
     console.log("[CodeSentinal] Running review mode...");
     const commitId = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getSHA */ .TK)(pullNumber);
-    let chunksWithWikiContext;
+    let reviewBundle;
     if (shouldUseWikiContext(pullRequest)) {
         await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
-        chunksWithWikiContext =
+        reviewBundle =
             await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_8__/* .getWikiContextForChunks */ .T)(chunks);
     }
     else {
-        chunksWithWikiContext = chunks.map((chunk) => ({
-            ...chunk,
-            wikiContext: "",
-            wikiDocuments: [],
-        }));
+        reviewBundle = {
+            globalContext: "",
+            chunks: chunks.map((chunk) => ({
+                ...chunk,
+                wikiContext: "",
+                wikiDocuments: [],
+            })),
+        };
     }
-    const result = await (0,_llm_js__WEBPACK_IMPORTED_MODULE_7__/* .reviewChunksWithLLM */ .W)(chunksWithWikiContext);
+    const result = await (0,_llm_js__WEBPACK_IMPORTED_MODULE_7__/* .reviewChunksWithLLM */ .W)(reviewBundle);
     if (result.reviews.length === 0) {
         console.log("No issues found by AI.");
         return;
@@ -78632,7 +78643,17 @@ var schemas = __nccwpck_require__(2314);
 var runtimeConfig = __nccwpck_require__(989);
 ;// CONCATENATED MODULE: ./dist/prompt.js
 
-function buildReviewPrompt(reviewChunks) {
+function buildReviewPrompt(reviewBundle) {
+    const compactChunks = reviewBundle.chunks.map((chunk) => ({
+        filename: chunk.filename,
+        startLine: chunk.startLine,
+        endLine: chunk.endLine,
+        codeWithContext: chunk.codeWithContext,
+        addedLines: chunk.addedLines,
+        removedLines: chunk.removedLines,
+        metadata: chunk.metadata,
+        repositoryContext: chunk.wikiContext,
+    }));
     return `
 You are CodeSentinal.
 
@@ -78645,26 +78666,10 @@ Your goal is to maximize accuracy.
 If uncertain, do NOT create a review comment.
 
 --------------------------------------------------
-REPOSITORY CONTEXT
+GLOBAL REPOSITORY CONTEXT
 --------------------------------------------------
 
-Each ReviewChunk may contain:
-
-- wikiContext
-- wikiDocuments
-
-The wiki is repository memory generated from accepted code.
-
-Use it to understand:
-
-- architecture
-- coding rules
-- review rules
-- data contracts
-- file responsibilities
-- repository conventions
-
-Treat wiki information as higher priority than assumptions.
+${reviewBundle.globalContext}
 
 --------------------------------------------------
 REVIEW PHILOSOPHY
@@ -78800,7 +78805,7 @@ If no issues:
 REVIEW CHUNKS
 --------------------------------------------------
 
-${JSON.stringify(reviewChunks, null, 2)}
+${JSON.stringify(compactChunks, null, 2)}
 `;
 }
 
@@ -78979,11 +78984,20 @@ const geminiResponseSchema = {
     },
     required: ["reviews"],
 };
-async function reviewChunksWithLLM(reviewChunks) {
-    if (reviewChunks.length === 0) {
-        return { reviews: [] };
+async function reviewChunksWithLLM(reviewBundle) {
+    if (reviewBundle.chunks.length === 0) {
+        return {
+            reviews: [],
+        };
     }
-    const prompt = buildReviewPrompt(reviewChunks);
+    (0,debugLogger/* debugJson */.q)("PROMPT_INPUT_STATS", {
+        chunks: reviewBundle.chunks.length,
+        globalContextChars: reviewBundle.globalContext.length,
+    });
+    const prompt = buildReviewPrompt(reviewBundle);
+    (0,debugLogger/* debugJson */.q)("PROMPT_STATS", {
+        chars: prompt.length,
+    });
     await waitBeforeGeminiCall();
     const response = await executeWithRetry(() => withTimeout(getGeminiClient().models.generateContent({
         model: runtimeConfig/* CONFIG */.P.llm.reviewModel,
@@ -80089,45 +80103,56 @@ async function loadGlobalWikiDocuments() {
     return dedupeDocuments(docs);
 }
 async function getWikiContextForChunks(chunks) {
+    if (chunks.length === 0) {
+        return {
+            globalContext: "",
+            chunks: [],
+        };
+    }
     const globalDocuments = await loadGlobalWikiDocuments();
-    // const globalContext =
-    //   buildWikiContextText(
-    //     globalDocuments
-    //   );
+    const globalContext = buildWikiContextText(globalDocuments);
     const results = [];
     for (const chunk of chunks) {
-        const docs = [
-            ...globalDocuments,
-        ];
+        const docs = [];
         const fileWikiPath = (0,_wikiPathMapper_js__WEBPACK_IMPORTED_MODULE_2__/* .sourcePathToWikiPath */ .xu)(chunk.filename);
         const fileDoc = await loadWikiDocument(fileWikiPath, `File-level wiki context for ${chunk.filename}`);
         if (fileDoc) {
             docs.push(fileDoc);
         }
         const relevantMemories = await (0,_repositoryMemoryRetriever_js__WEBPACK_IMPORTED_MODULE_1__/* .getRelevantMemories */ .Js)(chunk, _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.review.maxRepositoryMemoriesPerChunk);
-        console.log("[CodeSentinal Memory Retrieval]");
-        _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.debug.enabled && console.log(JSON.stringify({
-            file: chunk.filename,
-            selectedMemories: relevantMemories.map((memory) => ({
-                memoryId: memory.memoryId,
-                section: memory.section,
-                score: memory.score,
-            })),
-        }, null, 2));
-        //********************THIS IS FOR LOGGING and DEBUGGING   PURPOSES DEBUGGING ONLY  */
+        _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.debug.enabled &&
+            console.log(JSON.stringify({
+                file: chunk.filename,
+                selectedMemories: relevantMemories.map((memory) => ({
+                    memoryId: memory.memoryId,
+                    section: memory.section,
+                    score: memory.score,
+                })),
+            }, null, 2));
         for (const memory of relevantMemories) {
             docs.push(memoryToDocument(memory));
         }
         const uniqueDocs = dedupeDocuments(docs);
-        const wikiContext = buildWikiContextText(uniqueDocs);
+        const chunkSpecificContext = buildWikiContextText(uniqueDocs);
         results.push({
             ...chunk,
             wikiDocuments: uniqueDocs,
-            wikiContext,
+            wikiContext: chunkSpecificContext,
         });
     }
-    (0,_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_4__/* .debugJson */ .q)("WIKI_REVIEW_CONTEXT", results);
-    return results;
+    (0,_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_4__/* .debugJson */ .q)("WIKI_REVIEW_CONTEXT_STATS", {
+        chunks: results.length,
+        globalDocuments: globalDocuments.length,
+        globalContextChars: globalContext.length,
+        chunkContexts: results.map((chunk) => ({
+            file: chunk.filename,
+            contextChars: chunk.wikiContext.length,
+        })),
+    });
+    return {
+        globalContext,
+        chunks: results,
+    };
 }
 
 
@@ -81415,6 +81440,7 @@ async function executeSingleBatch(chunks) {
     const prompt = buildWikiUpdatePrompt(chunks);
     (0,debugLogger/* debugJson */.q)("WIKI_PLANNER_PROMPT", prompt);
     const raw = await (0,llm/* generateTextWithGemini */.Y)(prompt);
+    (0,debugLogger/* debugJson */.q)("RAW_WIKI_PLANNER_RESPONSE", raw);
     let parsed;
     try {
         parsed = JSON.parse(extractJson(raw));
@@ -81426,11 +81452,13 @@ async function executeSingleBatch(chunks) {
     const validated = wikiUpdatePlanSchema.safeParse(parsed);
     if (!validated.success) {
         console.log("[CodeSentinal Wiki] Planner schema mismatch.");
-        (0,debugLogger/* debugJson */.q)("WIKI_PLANNER_RESPONSE", validated.data);
+        (0,debugLogger/* debugJson */.q)("INVALID_WIKI_PLANNER_RESPONSE", parsed);
         console.log(validated.error);
         return emptyPlan("Planner response failed schema validation.");
     }
-    return sanitizePlan(validated.data);
+    const sanitized = sanitizePlan(validated.data);
+    (0,debugLogger/* debugJson */.q)("SANITIZED_WIKI_PLAN", sanitized);
+    return sanitized;
 }
 async function planWikiMarkdownUpdates(chunks) {
     if (chunks.length === 0) {

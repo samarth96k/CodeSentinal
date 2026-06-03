@@ -79,3 +79,15 @@ export type RepositoryMemoryEntry = {
 export type RepositoryMemoryBucket = {
   entries: RepositoryMemoryEntry[];
 };
+
+export type ReviewContextBundle = {
+  globalContext: string;
+
+  chunks: ReviewChunkWithWikiContext[];
+};
+
+export type ReviewPromptBundle = {
+  globalContext: string;
+
+  chunks: ReviewChunkWithWikiContext[];
+};

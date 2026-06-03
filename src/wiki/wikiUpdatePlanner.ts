@@ -211,7 +211,10 @@ async function executeSingleBatch(
     await generateTextWithGemini(
       prompt
     );
-
+    debugJson(
+      "RAW_WIKI_PLANNER_RESPONSE",
+      raw
+    );
 
   let parsed: unknown;
 
@@ -238,20 +241,27 @@ async function executeSingleBatch(
     console.log(
       "[CodeSentinal Wiki] Planner schema mismatch."
     );
-    debugJson(
-  "WIKI_PLANNER_RESPONSE",
-  validated.data
-);
+  debugJson(
+    "INVALID_WIKI_PLANNER_RESPONSE",
+    parsed
+  );
     console.log(validated.error);
 
     return emptyPlan(
       "Planner response failed schema validation."
     );
   }
+  const sanitized =
+    sanitizePlan(
+      validated.data as WikiUpdatePlan
+    );
 
-  return sanitizePlan(
-    validated.data as WikiUpdatePlan
+  debugJson(
+    "SANITIZED_WIKI_PLAN",
+    sanitized
   );
+
+  return sanitized;
 }
 
 export async function planWikiMarkdownUpdates(

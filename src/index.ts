@@ -8,7 +8,7 @@ import {
   postComments,
   commitWikiMarkdownChangesToPullRequestBranch,
 } from "./github.js";
-import type { ReviewChunkWithWikiContext } from "./wiki/wikiReviewTypes.js";
+import type { ReviewPromptBundle } from "./wiki/wikiReviewTypes.js";
 import { debugJson } from "./wiki/utils/debugLogger.js";
 
 import { parsePatchLibrary } from "./diffParser.js";
@@ -143,6 +143,17 @@ async function buildReviewChunks(): Promise<ReviewChunk[]> {
       console.log("SKIPPED: No patch found for", file.filename);
       continue;
     }
+    if (
+      file.filename.startsWith(
+        ".codesentinal/wiki/"
+      )
+    ) {
+      console.log(
+        `[CodeSentinal] Skipping wiki file review: ${file.filename}`
+      );
+
+      continue;
+    }
 
     const parsed = parsePatchLibrary(file.patch);
     const processedParsed = preprocessParsedFiles(parsed, file.filename);
@@ -153,54 +164,89 @@ async function buildReviewChunks(): Promise<ReviewChunk[]> {
     }
 
     const chunks = chunkingParsed(processedParsed, file.filename);
-      debugJson(
-  "REVIEW_CHUNKS",
-  chunks
-);
+    debugJson(
+      "REVIEW_CHUNK_STATS",
+      {
+        file: file.filename,
+        chunks: chunks.length,
+      }
+      );
     allChunks.push(...chunks);
   }
-
+    console.log(
+      `[CodeSentinal] Total review chunks: ${allChunks.length}`
+    );
   return allChunks;
 }
 
-async function runReviewMode(chunks: ReviewChunk[]) {
-  console.log("[CodeSentinal] Running review mode...");
+async function runReviewMode(
+  chunks: ReviewChunk[]
+) {
+  console.log(
+    "[CodeSentinal] Running review mode..."
+  );
 
-  const commitId = await getSHA(pullNumber);
+  const commitId =
+    await getSHA(pullNumber);
 
-  let chunksWithWikiContext: ReviewChunkWithWikiContext[];
+  let reviewBundle:
+    ReviewPromptBundle;
 
-  if (shouldUseWikiContext(pullRequest)) {
+  if (
+    shouldUseWikiContext(
+      pullRequest
+    )
+  ) {
     await ensureWikiAvailable();
 
-    chunksWithWikiContext =
-      await getWikiContextForChunks(chunks);
+    reviewBundle =
+      await getWikiContextForChunks(
+        chunks
+      );
   } else {
-    chunksWithWikiContext = chunks.map((chunk) => ({
-      ...chunk,
-      wikiContext: "",
-      wikiDocuments: [],
-    }));
+    reviewBundle = {
+      globalContext: "",
+
+      chunks: chunks.map(
+        (chunk) => ({
+          ...chunk,
+
+          wikiContext: "",
+
+          wikiDocuments: [],
+        })
+      ),
+    };
   }
 
   const result =
     await reviewChunksWithLLM(
-      chunksWithWikiContext
+      reviewBundle
     );
 
-  if (result.reviews.length === 0) {
-    console.log("No issues found by AI.");
+  if (
+    result.reviews.length === 0
+  ) {
+    console.log(
+      "No issues found by AI."
+    );
+
     return;
   }
 
-  const postResult = await postComments(
-    result,
-    commitId,
-    pullNumber
-  );
+  const postResult =
+    await postComments(
+      result,
+      commitId,
+      pullNumber
+    );
 
   console.log(
-    JSON.stringify(postResult, null, 2)
+    JSON.stringify(
+      postResult,
+      null,
+      2
+    )
   );
 }
 

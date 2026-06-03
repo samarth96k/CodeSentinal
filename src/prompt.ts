@@ -1,9 +1,41 @@
-import type { ReviewChunkWithWikiContext } from "./wiki/wikiReviewTypes.js";
+import type {
+  ReviewPromptBundle,
+} from "./wiki/wikiReviewTypes.js";
+
 import { CONFIG } from "./config/runtimeConfig.js";
 
 export function buildReviewPrompt(
-  reviewChunks: ReviewChunkWithWikiContext[]
+  reviewBundle: ReviewPromptBundle
 ): string {
+  const compactChunks =
+    reviewBundle.chunks.map(
+      (chunk) => ({
+        filename:
+          chunk.filename,
+
+        startLine:
+          chunk.startLine,
+
+        endLine:
+          chunk.endLine,
+
+        codeWithContext:
+          chunk.codeWithContext,
+
+        addedLines:
+          chunk.addedLines,
+
+        removedLines:
+          chunk.removedLines,
+
+        metadata:
+          chunk.metadata,
+
+        repositoryContext:
+          chunk.wikiContext,
+      })
+    );
+
   return `
 You are CodeSentinal.
 
@@ -16,26 +48,10 @@ Your goal is to maximize accuracy.
 If uncertain, do NOT create a review comment.
 
 --------------------------------------------------
-REPOSITORY CONTEXT
+GLOBAL REPOSITORY CONTEXT
 --------------------------------------------------
 
-Each ReviewChunk may contain:
-
-- wikiContext
-- wikiDocuments
-
-The wiki is repository memory generated from accepted code.
-
-Use it to understand:
-
-- architecture
-- coding rules
-- review rules
-- data contracts
-- file responsibilities
-- repository conventions
-
-Treat wiki information as higher priority than assumptions.
+${reviewBundle.globalContext}
 
 --------------------------------------------------
 REVIEW PHILOSOPHY
@@ -171,6 +187,10 @@ If no issues:
 REVIEW CHUNKS
 --------------------------------------------------
 
-${JSON.stringify(reviewChunks, null, 2)}
+${JSON.stringify(
+  compactChunks,
+  null,
+  2
+)}
 `;
 }

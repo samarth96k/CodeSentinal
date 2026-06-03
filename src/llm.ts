@@ -3,8 +3,9 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { buildReviewPrompt } from "./prompt.js";
 import {CONFIG} from "./config/runtimeConfig.js";
-import type { ReviewChunkWithWikiContext } from "./wiki/wikiReviewTypes.js";
-import { debugJson } from "./wiki/utils/debugLogger.js";
+import type {
+  ReviewPromptBundle,
+} from "./wiki/wikiReviewTypes.js";import { debugJson } from "./wiki/utils/debugLogger.js";
 import {
   deduplicateReviews,
 } from "./wiki/reviewDeduplicator.js";
@@ -218,15 +219,36 @@ const geminiResponseSchema = {
 };
 
 export async function reviewChunksWithLLM(
-  reviewChunks: ReviewChunkWithWikiContext[]
-): Promise<LLMReviewResponse> {
-  if (reviewChunks.length === 0) {
-    return { reviews: [] };
+  reviewBundle: ReviewPromptBundle
+): Promise<LLMReviewResponse>{
+if (
+  reviewBundle.chunks.length === 0
+) {
+  return {
+    reviews: [],
+  };
+}
+debugJson(
+  "PROMPT_INPUT_STATS",
+  {
+    chunks:
+      reviewBundle.chunks.length,
+
+    globalContextChars:
+      reviewBundle.globalContext.length,
   }
-
-  const prompt =
-    buildReviewPrompt(reviewChunks);
-
+);
+const prompt =
+  buildReviewPrompt(
+    reviewBundle
+  );
+debugJson(
+  "PROMPT_STATS",
+  {
+    chars:
+      prompt.length,
+  }
+);
   await waitBeforeGeminiCall();
 
   const response =
