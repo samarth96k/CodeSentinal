@@ -57100,6 +57100,7 @@ async function runWikiUpdateMode(chunks) {
     await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
     const chunksWithWikiContext = await (0,_wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__/* .getWikiUpdateContextForChunks */ .i)(chunks);
     const wikiUpdatePlan = await (0,_wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_10__/* .planWikiMarkdownUpdates */ .v)(chunksWithWikiContext);
+    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("WIKI_UPDATE_PLAN", wikiUpdatePlan);
     if (!wikiUpdatePlan.updatesRequired) {
         console.log("[CodeSentinal Wiki] No wiki markdown update required.");
         return;
@@ -57107,6 +57108,7 @@ async function runWikiUpdateMode(chunks) {
     console.log("[CodeSentinal Wiki] Wiki update plan:");
     console.log(JSON.stringify(wikiUpdatePlan, null, 2));
     const wikiFileChanges = await (0,_wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_11__/* .buildWikiMarkdownFileChanges */ .D)(wikiUpdatePlan);
+    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("WIKI_FILE_CHANGES", wikiFileChanges);
     if (wikiFileChanges.length === 0) {
         console.log("[CodeSentinal Wiki] No wiki file changes after patch building.");
         return;
@@ -57115,6 +57117,7 @@ async function runWikiUpdateMode(chunks) {
         pullNumber,
         changes: wikiFileChanges,
     });
+    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("WIKI_COMMIT_RESULT", wikiCommitResult);
     console.log("[CodeSentinal Wiki] Commit result:");
     console.log(JSON.stringify(wikiCommitResult, null, 2));
 }
@@ -81330,7 +81333,7 @@ const wikiUpdatePlanSchema = schemas/* object */.Ik({
 function emptyClassification() {
     return {
         category: "no-wiki-update",
-        confidence: 1,
+        confidence: 0,
         reason: "No valid wiki update classification available.",
     };
 }
@@ -81410,8 +81413,8 @@ function deduplicateUpdates(updates) {
 }
 async function executeSingleBatch(chunks) {
     const prompt = buildWikiUpdatePrompt(chunks);
-    const raw = await (0,llm/* generateTextWithGemini */.Y)(prompt);
     (0,debugLogger/* debugJson */.q)("WIKI_PLANNER_PROMPT", prompt);
+    const raw = await (0,llm/* generateTextWithGemini */.Y)(prompt);
     let parsed;
     try {
         parsed = JSON.parse(extractJson(raw));
@@ -81423,6 +81426,7 @@ async function executeSingleBatch(chunks) {
     const validated = wikiUpdatePlanSchema.safeParse(parsed);
     if (!validated.success) {
         console.log("[CodeSentinal Wiki] Planner schema mismatch.");
+        (0,debugLogger/* debugJson */.q)("WIKI_PLANNER_RESPONSE", validated.data);
         console.log(validated.error);
         return emptyPlan("Planner response failed schema validation.");
     }
@@ -81468,6 +81472,7 @@ async function planWikiMarkdownUpdates(chunks) {
         };
     }
     const dedupedUpdates = deduplicateUpdates(allUpdates).slice(0, runtimeConfig/* CONFIG */.P.wiki.maxFileUpdatesPerRun);
+    (0,debugLogger/* debugJson */.q)("DEDUPED_WIKI_UPDATES", dedupedUpdates);
     return {
         classification: dedupedUpdates.length > 0
             ? highestClassification

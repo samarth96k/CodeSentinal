@@ -66,7 +66,7 @@ const wikiUpdatePlanSchema = z.object({
 function emptyClassification(): WikiUpdateClassification {
   return {
     category: "no-wiki-update",
-    confidence: 1,
+    confidence: 0,
     reason:
       "No valid wiki update classification available.",
   };
@@ -204,16 +204,15 @@ async function executeSingleBatch(
 ): Promise<WikiUpdatePlan> {
   const prompt =
     buildWikiUpdatePrompt(chunks);
-
+    debugJson(
+  "WIKI_PLANNER_PROMPT",
+  prompt);
   const raw =
     await generateTextWithGemini(
       prompt
     );
 
-    debugJson(
-  "WIKI_PLANNER_PROMPT",
-  prompt
-);
+
   let parsed: unknown;
 
   try {
@@ -239,7 +238,10 @@ async function executeSingleBatch(
     console.log(
       "[CodeSentinal Wiki] Planner schema mismatch."
     );
-
+    debugJson(
+  "WIKI_PLANNER_RESPONSE",
+  validated.data
+);
     console.log(validated.error);
 
     return emptyPlan(
@@ -350,7 +352,10 @@ export async function planWikiMarkdownUpdates(
       0,
       CONFIG.wiki.maxFileUpdatesPerRun
     );
-
+debugJson(
+  "DEDUPED_WIKI_UPDATES",
+  dedupedUpdates
+);
   return {
     classification:
       dedupedUpdates.length > 0

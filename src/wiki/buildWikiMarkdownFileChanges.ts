@@ -1,6 +1,6 @@
 import { readTextFile } from "./utils/fileHelpers.js";
 import { routeWikiUpdate } from "./wikiRouting.js";
-
+import { debugJson } from "./utils/debugLogger.js";
 import type {
   WikiMarkdownFileChange,
   WikiUpdatePlan,
@@ -101,6 +101,9 @@ export async function buildWikiMarkdownFileChanges(
         appendBlock,
     });
   }
-
+debugJson(
+  "WIKI_MARKDOWN_CHANGES",
+  changes
+);
   return changes;
 }

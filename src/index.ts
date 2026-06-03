@@ -219,7 +219,10 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
   const chunksWithWikiContext =await getWikiUpdateContextForChunks(chunks);
 
   const wikiUpdatePlan = await planWikiMarkdownUpdates(chunksWithWikiContext);
-
+  debugJson(
+  "WIKI_UPDATE_PLAN",
+  wikiUpdatePlan
+);
   if (!wikiUpdatePlan.updatesRequired) {
     console.log("[CodeSentinal Wiki] No wiki markdown update required.");
     return;
@@ -229,7 +232,10 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
   console.log(JSON.stringify(wikiUpdatePlan, null, 2));
 
   const wikiFileChanges = await buildWikiMarkdownFileChanges(wikiUpdatePlan);
-
+  debugJson(
+  "WIKI_FILE_CHANGES",
+  wikiFileChanges
+);
   if (wikiFileChanges.length === 0) {
     console.log("[CodeSentinal Wiki] No wiki file changes after patch building.");
     return;
@@ -239,7 +245,10 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
     pullNumber,
     changes: wikiFileChanges,
   });
-
+  debugJson(
+  "WIKI_COMMIT_RESULT",
+  wikiCommitResult
+);
   console.log("[CodeSentinal Wiki] Commit result:");
   console.log(JSON.stringify(wikiCommitResult, null, 2));
 }
