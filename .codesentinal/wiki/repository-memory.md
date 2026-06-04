@@ -46,6 +46,21 @@ Repository memories retrieved by getRelevantMemories are converted into WikiCont
 
 ---
 
+
+### Memory ID: 4f355046e7e5
+
+Created At: 2026-06-04T17:36:43.536Z
+
+**Reason**
+
+Enforcement of repository memory integrity.
+
+**Knowledge**
+
+Repository memory writers now enforce strict presence checks for headers and existence validation. Any attempt to update non-existent memory sections will trigger a runtime error to prevent silent failures.
+
+---
+
 ## Known Constraints
 
 ### Memory ID: CON001
@@ -163,20 +178,5 @@ Repository memory updates require special handling.
 **Knowledge**
 
 Repository memory updates should be inserted through insertIntoRepositoryMemory and trimmed through trimRepositoryMemorySection to preserve section structure and memory limits.
-
----
-
-
-### Memory ID: 89a40367ede2
-
-Created At: 2026-06-04T17:36:43.535Z
-
-**Reason**
-
-Standardized handling for transient GitHub API failures.
-
-**Knowledge**
-
-All GitHub API requests should utilize `isRetryableGitHubError` to determine if a status code (429, 500, 502, 503) warrants a retry attempt.
 
 ---
