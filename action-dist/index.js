@@ -56876,30 +56876,39 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
     const { pullNumber, changes, commitMessage = "docs: update CodeSentinal LLM wiki", } = params;
     assertValidPullNumber(pullNumber);
     const safeChanges = changes.filter(assertSafeWikiMarkdownChange);
+    console.log(`[CodeSentinal Wiki Commit] Received ${changes.length} change(s)`);
+    console.log(`[CodeSentinal Wiki Commit] Safe changes: ${safeChanges.length}`);
     if (safeChanges.length === 0) {
+        console.log("[CodeSentinal Wiki Commit] Nothing to commit.");
         return {
             committed: false,
             reason: "No safe wiki markdown changes.",
         };
     }
     const pr = await getPullRequestDetails(pullNumber);
-    const isSameRepoPR = pr.head.repo?.full_name === pr.base.repo?.full_name;
+    const isSameRepoPR = pr.head.repo?.full_name ===
+        pr.base.repo?.full_name;
     if (!isSameRepoPR) {
+        console.log("[CodeSentinal Wiki Commit] Fork PR detected. Skipping commit.");
         return {
             committed: false,
             reason: "Fork PR detected. Direct commits are disabled for safety.",
         };
     }
     const branch = pr.head.ref;
+    console.log(`[CodeSentinal Wiki Commit] Target branch: ${branch}`);
     const results = [];
     for (const change of safeChanges) {
         try {
+            console.log(`[CodeSentinal Wiki Commit] Processing ${change.path}`);
+            console.log(`[CodeSentinal Wiki Commit] Content length: ${change.content.length}`);
             const sha = await getExistingFileSha({
                 owner,
                 repo,
                 path: change.path,
                 ref: branch,
             });
+            console.log(`[CodeSentinal Wiki Commit] Existing SHA: ${sha ?? "NEW_FILE"}`);
             const response = await executeGitHubWithRetry(() => getOctokitClient().request("PUT /repos/{owner}/{repo}/contents/{path}", {
                 owner,
                 repo,
@@ -56912,6 +56921,8 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
                     "X-GitHub-Api-Version": "2022-11-28",
                 },
             }));
+            console.log(`[CodeSentinal Wiki Commit] SUCCESS ${change.path}`);
+            console.log(`[CodeSentinal Wiki Commit] Commit SHA: ${response.data.commit.sha}`);
             results.push({
                 path: change.path,
                 success: true,
@@ -56919,6 +56930,8 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
             });
         }
         catch (error) {
+            console.log(`[CodeSentinal Wiki Commit] FAILED ${change.path}`);
+            console.log(error);
             results.push({
                 path: change.path,
                 success: false,
@@ -56930,6 +56943,7 @@ async function commitWikiMarkdownChangesToPullRequestBranch(params) {
             });
         }
     }
+    (0,debugLogger/* debugJson */.q)("WIKI_COMMIT_RESULTS", results);
     return {
         committed: results.some((result) => result.success),
         branch,
@@ -79932,10 +79946,16 @@ Document recurring review findings and lessons.
 
 Document external integrations, workflows, and cross-system behavior.
 `,
-        }
+        },
     ];
     for (const core of coreGenerators) {
         try {
+            const coreWikiPath = `.codesentinal/wiki/${core.fileName}`;
+            const exists = await (0,fileHelpers/* pathExists */.s0)(coreWikiPath);
+            if (exists) {
+                console.log(`[CodeSentinal Wiki] Preserving existing ${core.fileName}`);
+                continue;
+            }
             console.log(`[CodeSentinal Wiki] Generating ${core.fileName}`);
             const markdown = await core.generate();
             const writtenPath = await (0,wikiWriter/* writeCoreWikiFile */.R)(core.fileName, markdown);
@@ -81523,9 +81543,7 @@ async function planWikiMarkdownUpdates(chunks) {
     const dedupedUpdates = deduplicateUpdates(allUpdates).slice(0, runtimeConfig/* CONFIG */.P.wiki.maxFileUpdatesPerRun);
     (0,debugLogger/* debugJson */.q)("DEDUPED_WIKI_UPDATES", dedupedUpdates);
     return {
-        classification: dedupedUpdates.length > 0
-            ? highestClassification
-            : emptyClassification(),
+        classification: highestClassification,
         updatesRequired: dedupedUpdates.length > 0,
         summary: summaries.join(" | ") ||
             "No wiki updates required.",

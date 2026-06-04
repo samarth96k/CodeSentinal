@@ -366,19 +366,17 @@ debugJson(
   "DEDUPED_WIKI_UPDATES",
   dedupedUpdates
 );
-  return {
-    classification:
-      dedupedUpdates.length > 0
-        ? highestClassification
-        : emptyClassification(),
+return {
+  classification:
+    highestClassification,
 
-    updatesRequired:
-      dedupedUpdates.length > 0,
+  updatesRequired:
+    dedupedUpdates.length > 0,
 
-    summary:
-      summaries.join(" | ") ||
-      "No wiki updates required.",
+  summary:
+    summaries.join(" | ") ||
+    "No wiki updates required.",
 
-    updates: dedupedUpdates,
-  };
+  updates: dedupedUpdates,
+};
 }

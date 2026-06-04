@@ -209,36 +209,82 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
 
   assertValidPullNumber(pullNumber);
 
-  const safeChanges = changes.filter(assertSafeWikiMarkdownChange);
+  const safeChanges =
+    changes.filter(
+      assertSafeWikiMarkdownChange
+    );
+
+  console.log(
+    `[CodeSentinal Wiki Commit] Received ${changes.length} change(s)`
+  );
+
+  console.log(
+    `[CodeSentinal Wiki Commit] Safe changes: ${safeChanges.length}`
+  );
 
   if (safeChanges.length === 0) {
+    console.log(
+      "[CodeSentinal Wiki Commit] Nothing to commit."
+    );
+
     return {
       committed: false,
-      reason: "No safe wiki markdown changes.",
+      reason:
+        "No safe wiki markdown changes.",
     };
   }
 
-  const pr = await getPullRequestDetails(pullNumber);
-  const isSameRepoPR = pr.head.repo?.full_name === pr.base.repo?.full_name;
+  const pr =
+    await getPullRequestDetails(
+      pullNumber
+    );
+
+  const isSameRepoPR =
+    pr.head.repo?.full_name ===
+    pr.base.repo?.full_name;
 
   if (!isSameRepoPR) {
+    console.log(
+      "[CodeSentinal Wiki Commit] Fork PR detected. Skipping commit."
+    );
+
     return {
       committed: false,
-      reason: "Fork PR detected. Direct commits are disabled for safety.",
+      reason:
+        "Fork PR detected. Direct commits are disabled for safety.",
     };
   }
 
-  const branch = pr.head.ref;
+  const branch =
+    pr.head.ref;
+
+  console.log(
+    `[CodeSentinal Wiki Commit] Target branch: ${branch}`
+  );
+
   const results = [];
 
   for (const change of safeChanges) {
     try {
-      const sha = await getExistingFileSha({
-        owner,
-        repo,
-        path: change.path,
-        ref: branch,
-      });
+      console.log(
+        `[CodeSentinal Wiki Commit] Processing ${change.path}`
+      );
+
+      console.log(
+        `[CodeSentinal Wiki Commit] Content length: ${change.content.length}`
+      );
+
+      const sha =
+        await getExistingFileSha({
+          owner,
+          repo,
+          path: change.path,
+          ref: branch,
+        });
+
+      console.log(
+        `[CodeSentinal Wiki Commit] Existing SHA: ${sha ?? "NEW_FILE"}`
+      );
 
       const response =
         await executeGitHubWithRetry(
@@ -268,26 +314,53 @@ export async function commitWikiMarkdownChangesToPullRequestBranch(params: {
             )
         );
 
+      console.log(
+        `[CodeSentinal Wiki Commit] SUCCESS ${change.path}`
+      );
+
+      console.log(
+        `[CodeSentinal Wiki Commit] Commit SHA: ${response.data.commit.sha}`
+      );
+
       results.push({
         path: change.path,
         success: true,
-        commitSha: response.data.commit.sha,
+        commitSha:
+          response.data.commit.sha,
       });
     } catch (error: any) {
+      console.log(
+        `[CodeSentinal Wiki Commit] FAILED ${change.path}`
+      );
+
+      console.log(error);
+
       results.push({
         path: change.path,
         success: false,
         error: {
-          message: error.message,
-          status: error.status,
-          response: error.response?.data,
+          message:
+            error.message,
+          status:
+            error.status,
+          response:
+            error.response?.data,
         },
       });
     }
   }
 
+  debugJson(
+    "WIKI_COMMIT_RESULTS",
+    results
+  );
+
   return {
-    committed: results.some((result) => result.success),
+    committed:
+      results.some(
+        (result) =>
+          result.success
+      ),
     branch,
     results,
   };

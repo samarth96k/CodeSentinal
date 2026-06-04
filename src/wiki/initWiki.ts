@@ -50,9 +50,13 @@ export async function initWiki(
 
   await prepareWikiFolders();
 
-  const analysis = await analyzeRepository(repoRoot);
+  const analysis =
+    await analyzeRepository(repoRoot);
 
-  console.log("[CodeSentinal Wiki] Repository analyzed.");
+  console.log(
+    "[CodeSentinal Wiki] Repository analyzed."
+  );
+
   console.log(
     `[CodeSentinal Wiki] Files found: ${analysis.files.length}`
   );
@@ -63,16 +67,26 @@ export async function initWiki(
   const fileAnalysesToGenerate = [];
 
   for (const item of analysis.fileAnalyses) {
-    if (!shouldGenerateFileWiki(item.file.path)) {
+    if (
+      !shouldGenerateFileWiki(
+        item.file.path
+      )
+    ) {
       continue;
     }
 
-    const wikiPath = sourcePathToWikiPath(item.file.path);
+    const wikiPath =
+      sourcePathToWikiPath(
+        item.file.path
+      );
 
-    const exists = await pathExists(wikiPath);
+    const exists =
+      await pathExists(wikiPath);
 
     if (!exists) {
-      fileAnalysesToGenerate.push(item);
+      fileAnalysesToGenerate.push(
+        item
+      );
     }
   }
 
@@ -80,17 +94,22 @@ export async function initWiki(
     `[CodeSentinal Wiki] Missing file wiki pages detected: ${fileAnalysesToGenerate.length}`
   );
 
-  const batches = chunkArray(
-    fileAnalysesToGenerate,
-    CONFIG.wiki.maxFilesPerBatch
-  );
+  const batches =
+    chunkArray(
+      fileAnalysesToGenerate,
+      CONFIG.wiki.maxFilesPerBatch
+    );
 
-  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-    const batch = batches[batchIndex];
+  for (
+    let batchIndex = 0;
+    batchIndex < batches.length;
+    batchIndex++
+  ) {
+    const batch =
+      batches[batchIndex];
 
     console.log(
-      `[CodeSentinal Wiki] Processing batch ${batchIndex + 1
-      }/${batches.length} (${batch.length} files)`
+      `[CodeSentinal Wiki] Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} files)`
     );
 
     for (const fileAnalysis of batch) {
@@ -99,72 +118,96 @@ export async function initWiki(
           `[CodeSentinal Wiki] Generating wiki for ${fileAnalysis.file.path}`
         );
 
-        const markdown = await generateFileWikiWithLLM(
-          fileAnalysis
-        );
+        const markdown =
+          await generateFileWikiWithLLM(
+            fileAnalysis
+          );
 
-        const writtenPath = await writeFileWiki(
-          fileAnalysis.file.path,
-          markdown
-        );
+        const writtenPath =
+          await writeFileWiki(
+            fileAnalysis.file.path,
+            markdown
+          );
 
-        writtenFiles.push(writtenPath);
+        writtenFiles.push(
+          writtenPath
+        );
       } catch (error) {
         console.warn(
           `[CodeSentinal Wiki] Failed to generate wiki for ${fileAnalysis.file.path}`,
           error
         );
 
-        skippedFiles.push(fileAnalysis.file.path);
+        skippedFiles.push(
+          fileAnalysis.file.path
+        );
       }
     }
   }
 
-  const fileEntries = analysis.fileAnalyses
-    .filter((item) => shouldGenerateFileWiki(item.file.path))
-    .map((item) => {
-      const wikiPath = sourcePathToWikiPath(
-        item.file.path
-      ).replace(".codesentinal/wiki/", "");
+  const fileEntries =
+    analysis.fileAnalyses
+      .filter((item) =>
+        shouldGenerateFileWiki(
+          item.file.path
+        )
+      )
+      .map((item) => {
+        const wikiPath =
+          sourcePathToWikiPath(
+            item.file.path
+          ).replace(
+            ".codesentinal/wiki/",
+            ""
+          );
 
-      return `- [${item.file.path}](${wikiPath}) — ${item.purpose}`;
-    });
+        return `- [${item.file.path}](${wikiPath}) — ${item.purpose}`;
+      });
 
   const coreGenerators: Array<{
     fileName: string;
     generate: () => Promise<string>;
   }> = [
-      {
-        fileName: "architecture.md",
-        generate: () =>
-          generateArchitectureWithLLM(analysis),
-      },
-      {
-        fileName: "database-schema.md",
-        generate: () =>
-          generateDataContractsWithLLM(analysis),
-      },
-      {
-        fileName: "coding-rules.md",
-        generate: () =>
-          generateCodingRulesWithLLM(analysis),
-      },
-      {
-        fileName: "review-rules.md",
-        generate: () =>
-          generateReviewRulesWithLLM(analysis),
-      },
-      {
-        fileName: "index.md",
-        generate: () =>
-          generateIndexWithLLM(
-            analysis,
-            fileEntries
-          ),
-      },
-      {
-        fileName: "repository-memory.md",
-        generate: async () => `
+    {
+      fileName: "architecture.md",
+      generate: () =>
+        generateArchitectureWithLLM(
+          analysis
+        ),
+    },
+    {
+      fileName: "database-schema.md",
+      generate: () =>
+        generateDataContractsWithLLM(
+          analysis
+        ),
+    },
+    {
+      fileName: "coding-rules.md",
+      generate: () =>
+        generateCodingRulesWithLLM(
+          analysis
+        ),
+    },
+    {
+      fileName: "review-rules.md",
+      generate: () =>
+        generateReviewRulesWithLLM(
+          analysis
+        ),
+    },
+    {
+      fileName: "index.md",
+      generate: () =>
+        generateIndexWithLLM(
+          analysis,
+          fileEntries
+        ),
+    },
+    {
+      fileName:
+        "repository-memory.md",
+      generate: async () => `
 # Repository Memory
 
 This file stores long-term repository knowledge.
@@ -197,30 +240,52 @@ Document recurring review findings and lessons.
 
 Document external integrations, workflows, and cross-system behavior.
 `,
-      }
-    ];
+    },
+  ];
 
   for (const core of coreGenerators) {
     try {
+      const coreWikiPath =
+        `.codesentinal/wiki/${core.fileName}`;
+
+      const exists =
+        await pathExists(
+          coreWikiPath
+        );
+
+      if (exists) {
+        console.log(
+          `[CodeSentinal Wiki] Preserving existing ${core.fileName}`
+        );
+
+        continue;
+      }
+
       console.log(
         `[CodeSentinal Wiki] Generating ${core.fileName}`
       );
 
-      const markdown = await core.generate();
+      const markdown =
+        await core.generate();
 
-      const writtenPath = await writeCoreWikiFile(
-        core.fileName,
-        markdown
+      const writtenPath =
+        await writeCoreWikiFile(
+          core.fileName,
+          markdown
+        );
+
+      writtenFiles.push(
+        writtenPath
       );
-
-      writtenFiles.push(writtenPath);
     } catch (error) {
       console.warn(
         `[CodeSentinal Wiki] Failed to generate ${core.fileName}`,
         error
       );
 
-      skippedFiles.push(core.fileName);
+      skippedFiles.push(
+        core.fileName
+      );
     }
   }
 
