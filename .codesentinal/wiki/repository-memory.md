@@ -10,7 +10,7 @@ Created At: 2026-06-04T00:00:00.000Z
 
 **Reason**
 
-GitHub operations must be resilient against transient failures and rate limiting.
+executeGitHubWithRetry is the standard GitHub reliability mechanism used throughout the repository.
 
 **Knowledge**
 
