@@ -189,7 +189,10 @@ export async function getWikiContextForChunks(
         chunk,
         CONFIG.review.maxRepositoryMemoriesPerChunk
       );
-
+debugJson(
+  "SELECTED_MEMORIES",
+  relevantMemories
+);
     CONFIG.debug.enabled &&
       console.log(
         JSON.stringify(
@@ -267,6 +270,7 @@ export async function getWikiContextForChunks(
         ),
     }
   );
+  
 
   return {
     globalContext,

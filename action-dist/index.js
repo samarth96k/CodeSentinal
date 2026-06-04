@@ -80120,6 +80120,7 @@ async function getWikiContextForChunks(chunks) {
             docs.push(fileDoc);
         }
         const relevantMemories = await (0,_repositoryMemoryRetriever_js__WEBPACK_IMPORTED_MODULE_1__/* .getRelevantMemories */ .Js)(chunk, _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.review.maxRepositoryMemoriesPerChunk);
+        (0,_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_4__/* .debugJson */ .q)("SELECTED_MEMORIES", relevantMemories);
         _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_3__/* .CONFIG */ .P.debug.enabled &&
             console.log(JSON.stringify({
                 file: chunk.filename,
@@ -80436,7 +80437,9 @@ async function getWikiUpdateContextForChunks(chunks) {
 /* harmony export */ });
 /* unused harmony exports loadRepositoryMemories, scoreMemory */
 /* harmony import */ var _utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(8560);
-/* harmony import */ var _utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(180);
+/* harmony import */ var _utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(180);
+/* harmony import */ var _config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(989);
+
 
 
 const REPOSITORY_MEMORY_PATH = ".codesentinal/wiki/repository-memory.md";
@@ -80452,7 +80455,11 @@ function buildChunkText(chunk) {
         chunk.filename,
         chunk.metadata.language,
         chunk.metadata.hunkHeader,
+        chunk.codeWithContext,
         chunk.addedLines
+            .map((line) => line.content)
+            .join(" "),
+        chunk.removedLines
             .map((line) => line.content)
             .join(" "),
     ].join(" ");
@@ -80476,40 +80483,43 @@ function calculateSimilarity(query, document) {
     return matches;
 }
 async function loadRepositoryMemories() {
-    let markdown = "";
-    try {
-        markdown =
-            await (0,_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__/* .readTextFile */ .Gu)(REPOSITORY_MEMORY_PATH);
-    }
-    catch {
+    const markdown = await (0,_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__/* .readTextFile */ .Gu)(REPOSITORY_MEMORY_PATH);
+    console.log(`[CodeSentinal Memory] Memory file size: ${markdown.length}`);
+    if (!markdown.trim()) {
         return [];
     }
     const memories = [];
-    const sectionRegex = /## (.*?)\n([\s\S]*?)(?=\n## |\s*$)/g;
+    const sectionRegex = /##\s+([^\n]+)([\s\S]*?)(?=\n##\s+|\s*$)/g;
     let sectionMatch;
     while ((sectionMatch =
         sectionRegex.exec(markdown))) {
         const section = sectionMatch[1].trim();
         const sectionBody = sectionMatch[2];
-        const memoryRegex = /### Memory ID:\s*(.*?)\n([\s\S]*?)(?=### Memory ID:|\s*$)/g;
+        const memoryRegex = /###\s+Memory ID:\s*([^\n]+)([\s\S]*?)(?=\n###\s+Memory ID:|\s*$)/g;
         let memoryMatch;
         while ((memoryMatch =
             memoryRegex.exec(sectionBody))) {
             const memoryId = memoryMatch[1].trim();
             const memoryBody = memoryMatch[2];
-            const reasonMatch = memoryBody.match(/\*\*Reason\*\*\s*([\s\S]*?)\*\*Knowledge\*\*/);
-            const knowledgeMatch = memoryBody.match(/\*\*Knowledge\*\*\s*([\s\S]*)/);
+            const reasonMatch = memoryBody.match(/\*\*Reason\*\*([\s\S]*?)\*\*Knowledge\*\*/);
+            const knowledgeMatch = memoryBody.match(/\*\*Knowledge\*\*([\s\S]*)/);
             memories.push({
                 section,
                 memoryId,
                 reason: reasonMatch?.[1]
                     ?.trim() ?? "",
                 knowledge: knowledgeMatch?.[1]
-                    ?.replace(/\n---$/, "")
+                    ?.replace(/\n---\s*$/, "")
                     .trim() ?? "",
             });
+            console.log("[Memory Path]", REPOSITORY_MEMORY_PATH);
+            const markdown = await (0,_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_0__/* .readTextFile */ .Gu)(REPOSITORY_MEMORY_PATH);
+            console.log("[Memory Size]", markdown.length);
+            console.log("[Memory Preview]");
+            console.log(markdown.slice(0, 500));
         }
     }
+    console.log(`[CodeSentinal Memory] Parsed memories: ${memories.length}`);
     return memories;
 }
 function scoreMemory(chunk, memory) {
@@ -80531,8 +80541,8 @@ function scoreMemory(chunk, memory) {
 }
 async function getRelevantMemories(chunk, limit = 5) {
     const memories = await loadRepositoryMemories();
-    (0,_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_1__/* .debugJson */ .q)("RETRIEVED_MEMORIES", memories);
-    return memories
+    (0,_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_2__/* .debugJson */ .q)("RETRIEVED_MEMORIES", memories);
+    const scored = memories
         .map((memory) => ({
         ...memory,
         score: scoreMemory(chunk, memory),
@@ -80540,6 +80550,17 @@ async function getRelevantMemories(chunk, limit = 5) {
         .filter((memory) => memory.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
+    if (_config_runtimeConfig_js__WEBPACK_IMPORTED_MODULE_1__/* .CONFIG */ .P.debug.enabled) {
+        console.log(JSON.stringify({
+            file: chunk.filename,
+            memoryScores: scored.map((memory) => ({
+                memoryId: memory.memoryId,
+                section: memory.section,
+                score: memory.score,
+            })),
+        }, null, 2));
+    }
+    return scored;
 }
 
 

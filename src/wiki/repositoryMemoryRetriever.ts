@@ -11,7 +11,7 @@ export type ScoredRepositoryMemory =
   RepositoryMemory & {
     score: number;
   };
-
+import {CONFIG } from "../config/runtimeConfig.js";
 const REPOSITORY_MEMORY_PATH =
   ".codesentinal/wiki/repository-memory.md";
 
@@ -35,8 +35,18 @@ function buildChunkText(
 
     chunk.metadata.hunkHeader,
 
+    chunk.codeWithContext,
+
     chunk.addedLines
-      .map((line) => line.content)
+      .map(
+        (line) => line.content
+      )
+      .join(" "),
+
+    chunk.removedLines
+      .map(
+        (line) => line.content
+      )
       .join(" "),
   ].join(" ");
 }
@@ -79,14 +89,16 @@ function calculateSimilarity(
 export async function loadRepositoryMemories(): Promise<
   RepositoryMemory[]
 > {
-  let markdown = "";
+  const markdown =
+    await readTextFile(
+      REPOSITORY_MEMORY_PATH
+    );
 
-  try {
-    markdown =
-      await readTextFile(
-        REPOSITORY_MEMORY_PATH
-      );
-  } catch {
+  console.log(
+    `[CodeSentinal Memory] Memory file size: ${markdown.length}`
+  );
+
+  if (!markdown.trim()) {
     return [];
   }
 
@@ -94,7 +106,7 @@ export async function loadRepositoryMemories(): Promise<
     [];
 
   const sectionRegex =
-    /## (.*?)\n([\s\S]*?)(?=\n## |\s*$)/g;
+    /##\s+([^\n]+)([\s\S]*?)(?=\n##\s+|\s*$)/g;
 
   let sectionMatch:
     | RegExpExecArray
@@ -113,7 +125,7 @@ export async function loadRepositoryMemories(): Promise<
       sectionMatch[2];
 
     const memoryRegex =
-      /### Memory ID:\s*(.*?)\n([\s\S]*?)(?=### Memory ID:|\s*$)/g;
+      /###\s+Memory ID:\s*([^\n]+)([\s\S]*?)(?=\n###\s+Memory ID:|\s*$)/g;
 
     let memoryMatch:
       | RegExpExecArray
@@ -133,12 +145,12 @@ export async function loadRepositoryMemories(): Promise<
 
       const reasonMatch =
         memoryBody.match(
-          /\*\*Reason\*\*\s*([\s\S]*?)\*\*Knowledge\*\*/
+          /\*\*Reason\*\*([\s\S]*?)\*\*Knowledge\*\*/
         );
 
       const knowledgeMatch =
         memoryBody.match(
-          /\*\*Knowledge\*\*\s*([\s\S]*)/
+          /\*\*Knowledge\*\*([\s\S]*)/
         );
 
       memories.push({
@@ -153,13 +165,39 @@ export async function loadRepositoryMemories(): Promise<
         knowledge:
           knowledgeMatch?.[1]
             ?.replace(
-              /\n---$/,
+              /\n---\s*$/,
               ""
             )
             .trim() ?? "",
       });
+      console.log(
+  "[Memory Path]",
+  REPOSITORY_MEMORY_PATH
+);
+
+  const markdown =
+    await readTextFile(
+      REPOSITORY_MEMORY_PATH
+    );
+
+  console.log(
+    "[Memory Size]",
+    markdown.length
+  );
+
+  console.log(
+    "[Memory Preview]"
+  );
+
+  console.log(
+    markdown.slice(0, 500)
+  );
     }
   }
+
+  console.log(
+    `[CodeSentinal Memory] Parsed memories: ${memories.length}`
+  );
 
   return memories;
 }
@@ -216,10 +254,10 @@ export async function getRelevantMemories(
   "RETRIEVED_MEMORIES",
   memories
 );
-  return memories
+  const scored =
+  memories
     .map((memory) => ({
       ...memory,
-
       score: scoreMemory(
         chunk,
         memory
@@ -234,4 +272,31 @@ export async function getRelevantMemories(
         b.score - a.score
     )
     .slice(0, limit);
+
+if (CONFIG.debug.enabled) {
+  console.log(
+    JSON.stringify(
+      {
+        file:
+          chunk.filename,
+
+        memoryScores:
+          scored.map(
+            (memory) => ({
+              memoryId:
+                memory.memoryId,
+              section:
+                memory.section,
+              score:
+                memory.score,
+            })
+          ),
+      },
+      null,
+      2
+    )
+  );
+}
+
+return scored;
 }

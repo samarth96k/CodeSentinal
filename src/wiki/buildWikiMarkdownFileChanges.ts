@@ -1,10 +1,17 @@
 import { readTextFile } from "./utils/fileHelpers.js";
 import { routeWikiUpdate } from "./wikiRouting.js";
 import { debugJson } from "./utils/debugLogger.js";
+
 import type {
   WikiMarkdownFileChange,
   WikiUpdatePlan,
 } from "./wikiReviewTypes.js";
+
+import {
+  insertIntoRepositoryMemory,
+  trimRepositoryMemorySection,
+  memoryEntryExists,
+} from "./repositoryMemoryWriter.js";
 
 function buildAppendBlock(
   reason: string,
@@ -41,7 +48,8 @@ export async function buildWikiMarkdownFileChanges(
     return [];
   }
 
-  const changes: WikiMarkdownFileChange[] = [];
+  const workingFiles =
+    new Map<string, string>();
 
   for (const update of plan.updates) {
     const routedUpdate =
@@ -51,59 +59,121 @@ export async function buildWikiMarkdownFileChanges(
       console.log(
         "[CodeSentinal Wiki] Failed to route update."
       );
+
       continue;
     }
 
-    let existingContent = "";
-
-    try {
-      existingContent =
-        await readTextFile(
-          routedUpdate.wikiFilePath
-        );
-    } catch {
-      console.log(
-        `[CodeSentinal Wiki] Unable to read wiki file: ${routedUpdate.wikiFilePath}`
-      );
-      continue;
-    }
-
-    const normalizedExisting =
-      normalizeForComparison(existingContent);
-
-    const normalizedNew =
-      normalizeForComparison(
-        routedUpdate.contentToAppend
+    let currentContent =
+      workingFiles.get(
+        routedUpdate.wikiFilePath
       );
 
     if (
-      normalizedExisting.includes(
-        normalizedNew
-      )
+      currentContent === undefined
     ) {
-      console.log(
-        `[CodeSentinal Wiki] Duplicate update skipped: ${routedUpdate.wikiFilePath}`
-      );
-      continue;
+      try {
+        currentContent =
+          await readTextFile(
+            routedUpdate.wikiFilePath
+          );
+      } catch {
+        console.log(
+          `[CodeSentinal Wiki] Unable to read wiki file: ${routedUpdate.wikiFilePath}`
+        );
+
+        continue;
+      }
     }
 
-    const appendBlock =
-      buildAppendBlock(
-        routedUpdate.reason,
-        routedUpdate.contentToAppend
-      );
+    let finalContent =
+      currentContent;
 
-    changes.push({
-      path: routedUpdate.wikiFilePath,
+    if (
+      update.target ===
+        "repository-memory" &&
+      update.memorySection
+    ) {
+      if (
+        memoryEntryExists(
+          finalContent,
+          update.reason,
+          update.contentToAppend
+        )
+      ) {
+        console.log(
+          `[CodeSentinal Wiki] Duplicate memory skipped: ${routedUpdate.wikiFilePath}`
+        );
 
-      content:
-        existingContent.trimEnd() +
-        appendBlock,
-    });
+        continue;
+      }
+
+      finalContent =
+        insertIntoRepositoryMemory(
+          finalContent,
+          update.memorySection,
+          update.reason,
+          update.contentToAppend
+        );
+
+      finalContent =
+        trimRepositoryMemorySection(
+          finalContent,
+          update.memorySection
+        );
+    } else {
+      const normalizedExisting =
+        normalizeForComparison(
+          finalContent
+        );
+
+      const normalizedNew =
+        normalizeForComparison(
+          update.contentToAppend
+        );
+
+      if (
+        normalizedExisting.includes(
+          normalizedNew
+        )
+      ) {
+        console.log(
+          `[CodeSentinal Wiki] Duplicate update skipped: ${routedUpdate.wikiFilePath}`
+        );
+
+        continue;
+      }
+
+      const appendBlock =
+        buildAppendBlock(
+          update.reason,
+          update.contentToAppend
+        );
+
+      finalContent =
+        finalContent.trimEnd() +
+        appendBlock;
+    }
+
+    workingFiles.set(
+      routedUpdate.wikiFilePath,
+      finalContent
+    );
   }
-debugJson(
-  "WIKI_MARKDOWN_CHANGES",
-  changes
-);
+
+  const changes =
+    Array.from(
+      workingFiles.entries()
+    ).map(
+      ([path, content]) => ({
+        path,
+        content,
+      })
+    );
+
+  debugJson(
+    "WIKI_MARKDOWN_CHANGES",
+    changes
+  );
+
   return changes;
 }
