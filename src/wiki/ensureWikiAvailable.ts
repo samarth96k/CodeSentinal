@@ -2,6 +2,7 @@ import { pathExists } from "./utils/fileHelpers.js";
 import { initWiki } from "./initWiki.js";
 import { analyzeRepository } from "./analyzer/repoAnalyzer.js";
 import { sourcePathToWikiPath } from "./utils/wikiWriter.js";
+import type { WikiWriteResult } from "./wikiTypes.js";
 
 const REQUIRED_CORE_WIKI_FILES = [
   ".codesentinal/wiki/index.md",
@@ -12,7 +13,7 @@ const REQUIRED_CORE_WIKI_FILES = [
   ".codesentinal/wiki/repository-memory.md",
 ];
 
-export async function ensureWikiAvailable(): Promise<void> {
+export async function ensureWikiAvailable(): Promise<WikiWriteResult | null>{
   let wikiNeedsInitialization = false;
 
   const missingCoreFiles: string[] = [];
@@ -77,16 +78,18 @@ export async function ensureWikiAvailable(): Promise<void> {
     console.log(
       "[CodeSentinal Wiki] Wiki integrity check passed."
     );
-    return;
+    return null;
   }
 
   console.log(
     "[CodeSentinal Wiki] Wiki incomplete. Starting repair."
   );
 
-  await initWiki();
+const result = await initWiki();
 
-  console.log(
-    "[CodeSentinal Wiki] Wiki repair completed."
-  );
+console.log(
+  "[CodeSentinal Wiki] Wiki repair completed."
+);
+
+return result;
 }

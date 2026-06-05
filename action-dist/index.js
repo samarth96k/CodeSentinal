@@ -56963,15 +56963,17 @@ __nccwpck_require__.a(__webpack_module__, async (__webpack_handle_async_dependen
 /* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(7422);
 /* harmony import */ var _wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(4351);
 /* harmony import */ var _github_js__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(6784);
-/* harmony import */ var _wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__ = __nccwpck_require__(180);
-/* harmony import */ var _diffParser_js__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(462);
-/* harmony import */ var _chunk_js__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(8829);
-/* harmony import */ var _llm_js__WEBPACK_IMPORTED_MODULE_7__ = __nccwpck_require__(9411);
-/* harmony import */ var _prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_12__ = __nccwpck_require__(8110);
-/* harmony import */ var _wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_8__ = __nccwpck_require__(1965);
-/* harmony import */ var _wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__ = __nccwpck_require__(6844);
-/* harmony import */ var _wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_10__ = __nccwpck_require__(7749);
-/* harmony import */ var _wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_11__ = __nccwpck_require__(9626);
+/* harmony import */ var _wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_14__ = __nccwpck_require__(180);
+/* harmony import */ var _wiki_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(8560);
+/* harmony import */ var _diffParser_js__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(462);
+/* harmony import */ var _chunk_js__WEBPACK_IMPORTED_MODULE_7__ = __nccwpck_require__(8829);
+/* harmony import */ var _llm_js__WEBPACK_IMPORTED_MODULE_8__ = __nccwpck_require__(9411);
+/* harmony import */ var _prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_13__ = __nccwpck_require__(8110);
+/* harmony import */ var _wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__ = __nccwpck_require__(1965);
+/* harmony import */ var _wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_10__ = __nccwpck_require__(6844);
+/* harmony import */ var _wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_11__ = __nccwpck_require__(7749);
+/* harmony import */ var _wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_12__ = __nccwpck_require__(9626);
+
 
 
 
@@ -57073,14 +57075,14 @@ async function buildReviewChunks() {
             console.log(`[CodeSentinal] Skipping wiki file review: ${file.filename}`);
             continue;
         }
-        const parsed = (0,_diffParser_js__WEBPACK_IMPORTED_MODULE_5__/* .parsePatchLibrary */ .l6)(file.patch);
-        const processedParsed = (0,_prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_12__/* .preprocessParsedFiles */ .x)(parsed, file.filename);
+        const parsed = (0,_diffParser_js__WEBPACK_IMPORTED_MODULE_6__/* .parsePatchLibrary */ .l6)(file.patch);
+        const processedParsed = (0,_prePrcessParsedFile_js__WEBPACK_IMPORTED_MODULE_13__/* .preprocessParsedFiles */ .x)(parsed, file.filename);
         if (processedParsed.length === 0) {
             console.log("SKIPPED:", file.filename);
             continue;
         }
-        const chunks = (0,_chunk_js__WEBPACK_IMPORTED_MODULE_6__/* .chunkingParsed */ .n)(processedParsed, file.filename);
-        (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("REVIEW_CHUNK_STATS", {
+        const chunks = (0,_chunk_js__WEBPACK_IMPORTED_MODULE_7__/* .chunkingParsed */ .n)(processedParsed, file.filename);
+        (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_14__/* .debugJson */ .q)("REVIEW_CHUNK_STATS", {
             file: file.filename,
             chunks: chunks.length,
         });
@@ -57096,7 +57098,7 @@ async function runReviewMode(chunks) {
     if (shouldUseWikiContext(pullRequest)) {
         await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
         reviewBundle =
-            await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_8__/* .getWikiContextForChunks */ .T)(chunks);
+            await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__/* .getWikiContextForChunks */ .T)(chunks);
     }
     else {
         reviewBundle = {
@@ -57108,7 +57110,7 @@ async function runReviewMode(chunks) {
             })),
         };
     }
-    const result = await (0,_llm_js__WEBPACK_IMPORTED_MODULE_7__/* .reviewChunksWithLLM */ .W)(reviewBundle);
+    const result = await (0,_llm_js__WEBPACK_IMPORTED_MODULE_8__/* .reviewChunksWithLLM */ .W)(reviewBundle);
     if (result.reviews.length === 0) {
         console.log("No issues found by AI.");
         return;
@@ -57122,18 +57124,36 @@ async function runWikiUpdateMode(chunks) {
         console.log("[CodeSentinal Wiki] Fork PR detected. Skipping wiki update for safety.");
         return;
     }
-    await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
-    const chunksWithWikiContext = await (0,_wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__/* .getWikiUpdateContextForChunks */ .i)(chunks);
-    const wikiUpdatePlan = await (0,_wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_10__/* .planWikiMarkdownUpdates */ .v)(chunksWithWikiContext);
-    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("WIKI_UPDATE_PLAN", wikiUpdatePlan);
+    const wikiInitResult = await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
+    if (wikiInitResult &&
+        wikiInitResult.writtenFiles.length > 0) {
+        const generatedWikiChanges = await Promise.all(wikiInitResult.writtenFiles.map(async (path) => ({
+            path,
+            content: await (0,_wiki_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_5__/* .readTextFile */ .Gu)(path),
+        })));
+        const initCommitResult = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .commitWikiMarkdownChangesToPullRequestBranch */ .x4)({
+            pullNumber,
+            changes: generatedWikiChanges,
+            commitMessage: "docs: initialize CodeSentinal wiki",
+        });
+        console.log("[CodeSentinal Wiki] Initial wiki commit result:");
+        console.log(JSON.stringify(initCommitResult, null, 2));
+    }
+    if (wikiInitResult &&
+        wikiInitResult.writtenFiles.length > 0) {
+        console.log(`[CodeSentinal Wiki] Generated ${wikiInitResult.writtenFiles.length} wiki files.`);
+    }
+    const chunksWithWikiContext = await (0,_wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_10__/* .getWikiUpdateContextForChunks */ .i)(chunks);
+    const wikiUpdatePlan = await (0,_wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_11__/* .planWikiMarkdownUpdates */ .v)(chunksWithWikiContext);
+    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_14__/* .debugJson */ .q)("WIKI_UPDATE_PLAN", wikiUpdatePlan);
     if (!wikiUpdatePlan.updatesRequired) {
         console.log("[CodeSentinal Wiki] No wiki markdown update required.");
         return;
     }
     console.log("[CodeSentinal Wiki] Wiki update plan:");
     console.log(JSON.stringify(wikiUpdatePlan, null, 2));
-    const wikiFileChanges = await (0,_wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_11__/* .buildWikiMarkdownFileChanges */ .D)(wikiUpdatePlan);
-    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("WIKI_FILE_CHANGES", wikiFileChanges);
+    const wikiFileChanges = await (0,_wiki_wikiPatchApplier_js__WEBPACK_IMPORTED_MODULE_12__/* .buildWikiMarkdownFileChanges */ .D)(wikiUpdatePlan);
+    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_14__/* .debugJson */ .q)("WIKI_FILE_CHANGES", wikiFileChanges);
     if (wikiFileChanges.length === 0) {
         console.log("[CodeSentinal Wiki] No wiki file changes after patch building.");
         return;
@@ -57142,7 +57162,7 @@ async function runWikiUpdateMode(chunks) {
         pullNumber,
         changes: wikiFileChanges,
     });
-    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_13__/* .debugJson */ .q)("WIKI_COMMIT_RESULT", wikiCommitResult);
+    (0,_wiki_utils_debugLogger_js__WEBPACK_IMPORTED_MODULE_14__/* .debugJson */ .q)("WIKI_COMMIT_RESULT", wikiCommitResult);
     console.log("[CodeSentinal Wiki] Commit result:");
     console.log(JSON.stringify(wikiCommitResult, null, 2));
 }
@@ -80025,11 +80045,12 @@ async function ensureWikiAvailable() {
     }
     if (!wikiNeedsInitialization) {
         console.log("[CodeSentinal Wiki] Wiki integrity check passed.");
-        return;
+        return null;
     }
     console.log("[CodeSentinal Wiki] Wiki incomplete. Starting repair.");
-    await initWiki();
+    const result = await initWiki();
     console.log("[CodeSentinal Wiki] Wiki repair completed.");
+    return result;
 }
 
 
