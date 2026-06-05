@@ -15,7 +15,7 @@ import { parsePatchLibrary } from "./diffParser.js";
 import { chunkingParsed, type ReviewChunk } from "./chunk.js";
 import { reviewChunksWithLLM } from "./llm.js";
 import { preprocessParsedFiles } from "./prePrcessParsedFile.js";
-
+import { WikiMarkdownFileChange } from "./wiki/wikiReviewTypes.js";
 import { getWikiContextForChunks } from "./wiki/getWikiContextForChunks.js";
 import { getWikiUpdateContextForChunks } from "./wiki/getWikiUpdateContextForChunks.js";
 import { planWikiMarkdownUpdates } from "./wiki/wikiUpdatePlanner.js";
@@ -266,16 +266,35 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
         wikiInitResult &&
         wikiInitResult.writtenFiles.length > 0
       ) {
-        const generatedWikiChanges =
-          await Promise.all(
-            wikiInitResult.writtenFiles.map(
-              async (path) => ({
-                path,
-                content:
-                  await readTextFile(path),
-              })
-            )
-          );
+const generatedWikiChanges =
+  (
+    await Promise.all(
+      wikiInitResult.writtenFiles.map(
+        async (path) => {
+          const content =
+            await readTextFile(path);
+
+          if (!content.trim()) {
+            console.log(
+              `[CodeSentinal Wiki] Empty generated file skipped: ${path}`
+            );
+
+            return null;
+          }
+
+          return {
+            path,
+            content,
+          };
+        }
+      )
+    )
+  ).filter(
+    (
+      change
+    ): change is WikiMarkdownFileChange =>
+      change !== null
+  );
 
         const initCommitResult =
           await commitWikiMarkdownChangesToPullRequestBranch({

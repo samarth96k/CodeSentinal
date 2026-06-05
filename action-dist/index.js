@@ -57127,10 +57127,17 @@ async function runWikiUpdateMode(chunks) {
     const wikiInitResult = await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
     if (wikiInitResult &&
         wikiInitResult.writtenFiles.length > 0) {
-        const generatedWikiChanges = await Promise.all(wikiInitResult.writtenFiles.map(async (path) => ({
-            path,
-            content: await (0,_wiki_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_5__/* .readTextFile */ .Gu)(path),
-        })));
+        const generatedWikiChanges = (await Promise.all(wikiInitResult.writtenFiles.map(async (path) => {
+            const content = await (0,_wiki_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_5__/* .readTextFile */ .Gu)(path);
+            if (!content.trim()) {
+                console.log(`[CodeSentinal Wiki] Empty generated file skipped: ${path}`);
+                return null;
+            }
+            return {
+                path,
+                content,
+            };
+        }))).filter((change) => change !== null);
         const initCommitResult = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .commitWikiMarkdownChangesToPullRequestBranch */ .x4)({
             pullNumber,
             changes: generatedWikiChanges,
