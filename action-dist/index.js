@@ -57096,7 +57096,31 @@ async function runReviewMode(chunks) {
     const commitId = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .getSHA */ .TK)(pullNumber);
     let reviewBundle;
     if (shouldUseWikiContext(pullRequest)) {
-        await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
+        const wikiInitResult = await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
+        if (wikiInitResult &&
+            wikiInitResult.writtenFiles.length > 0) {
+            const generatedWikiChanges = (await Promise.all(wikiInitResult.writtenFiles.map(async (path) => {
+                const content = await (0,_wiki_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_5__/* .readTextFile */ .Gu)(path);
+                if (!content.trim()) {
+                    console.log(`[CodeSentinal Wiki] Empty generated file skipped: ${path}`);
+                    return null;
+                }
+                return {
+                    path,
+                    content,
+                };
+            }))).filter((change) => change !== null);
+            if (generatedWikiChanges.length > 0) {
+                const initCommitResult = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .commitWikiMarkdownChangesToPullRequestBranch */ .x4)({
+                    pullNumber,
+                    changes: generatedWikiChanges,
+                    commitMessage: "docs: initialize CodeSentinal wiki",
+                });
+                console.log("[CodeSentinal Wiki] Initial wiki commit result:");
+                console.log(JSON.stringify(initCommitResult, null, 2));
+            }
+            console.log(`[CodeSentinal Wiki] Generated ${wikiInitResult.writtenFiles.length} wiki files.`);
+        }
         reviewBundle =
             await (0,_wiki_getWikiContextForChunks_js__WEBPACK_IMPORTED_MODULE_9__/* .getWikiContextForChunks */ .T)(chunks);
     }
@@ -57125,27 +57149,6 @@ async function runWikiUpdateMode(chunks) {
         return;
     }
     const wikiInitResult = await (0,_wiki_ensureWikiAvailable_js__WEBPACK_IMPORTED_MODULE_3__/* .ensureWikiAvailable */ .M)();
-    if (wikiInitResult &&
-        wikiInitResult.writtenFiles.length > 0) {
-        const generatedWikiChanges = (await Promise.all(wikiInitResult.writtenFiles.map(async (path) => {
-            const content = await (0,_wiki_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_5__/* .readTextFile */ .Gu)(path);
-            if (!content.trim()) {
-                console.log(`[CodeSentinal Wiki] Empty generated file skipped: ${path}`);
-                return null;
-            }
-            return {
-                path,
-                content,
-            };
-        }))).filter((change) => change !== null);
-        const initCommitResult = await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .commitWikiMarkdownChangesToPullRequestBranch */ .x4)({
-            pullNumber,
-            changes: generatedWikiChanges,
-            commitMessage: "docs: initialize CodeSentinal wiki",
-        });
-        console.log("[CodeSentinal Wiki] Initial wiki commit result:");
-        console.log(JSON.stringify(initCommitResult, null, 2));
-    }
     if (wikiInitResult &&
         wikiInitResult.writtenFiles.length > 0) {
         console.log(`[CodeSentinal Wiki] Generated ${wikiInitResult.writtenFiles.length} wiki files.`);
