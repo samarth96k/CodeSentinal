@@ -40,6 +40,10 @@ Generate markdown with these sections only:
 
 # Critical Review Context
 
+# Maintenance Notes
+
+# Known Constraints
+
 # Related Components
 
 # Repository Memory

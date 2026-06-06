@@ -78735,7 +78735,14 @@ Do NOT create comments for:
 - personal opinions
 - speculative concerns
 
-If confidence is below 90%, do not comment.
+If confidence is below 85%, do not comment.
+
+If confidence is between 85% and 90%, only comment when the issue can cause:
+
+- runtime failures
+- security vulnerabilities
+- data corruption
+- broken workflows
 
 --------------------------------------------------
 PRIORITY ORDER
@@ -79587,6 +79594,10 @@ Generate markdown with these sections only:
 # Architectural Role
 
 # Critical Review Context
+
+# Maintenance Notes
+
+# Known Constraints
 
 # Related Components
 
@@ -81112,22 +81123,32 @@ function buildCompactChunk(chunk) {
 function buildWikiUpdatePrompt(chunks) {
     const compactChunks = chunks.map(buildCompactChunk);
     return `
-You are CodeSentinal's Repository Memory Engine.
+You are CodeSentinal's Wiki Maintenance Engine.
 
 IMPORTANT
 
-This task is NOT documentation generation.
+This task maintains the CodeSentinal repository wiki.
 
-This task is NOT architecture generation.
+The repository wiki contains:
 
-This task exists ONLY to maintain long-term repository memory used by future pull request reviews.
+- file-level wiki pages
+- architecture documentation
+- database documentation
+- review guidance
+- repository memory
+
+Your responsibility is to determine whether any wiki document should evolve based on the pull request.
+
+Repository memory is only one part of the wiki system.
+
+File wiki pages are expected to evolve more frequently than repository memory.
 
 Your job:
 
 1. Classify the repository change.
-2. Decide whether repository memory should be updated.
-3. Decide which repository knowledge area is affected.
-4. Produce concise memory updates.
+2. Decide whether any wiki document should be updated.
+3. Decide which wiki knowledge area is affected.
+4. Produce concise wiki updates.
 
 ------------------------------------------------
 
@@ -81162,29 +81183,49 @@ Reason should explain WHY the category was selected.
 
 ------------------------------------------------
 
-REPOSITORY MEMORY PRINCIPLE
+WIKI EVOLUTION PRINCIPLE
 
-Store ONLY information that would help a future reviewer understand future pull requests.
+Update wiki documents when a future developer would benefit from understanding the change without rereading the repository.
 
-Store:
+Possible update destinations include:
 
-- architectural decisions
-- workflow decisions
-- integrations
-- security assumptions
-- data contracts
-- review guidance
-- repository constraints
-- migration knowledge
+- file wiki pages
+- architecture.md
+- database-schema.md
+- review-rules.md
+- repository-memory.md
 
-Do NOT store:
+Not every change belongs in repository-memory.
 
-- implementation details
+File responsibility changes should usually update file wiki pages.
+
+Architecture changes should usually update architecture.md.
+
+Review workflow changes should usually update review-rules.md.
+
+Long-term repository knowledge should usually update repository-memory.md.
+
+Do NOT generate updates for:
+
 - formatting changes
 - comments
+- lint fixes
+- whitespace changes
+- cosmetic refactors
 - variable renames
-- refactors without behavioral impact
-- code that can easily be inferred by reading the source
+- import reordering
+
+Store implementation knowledge when it:
+
+- changes responsibilities
+- affects future maintenance
+- changes execution flow
+- affects integrations
+- affects review behavior
+- introduces repository constraints
+- introduces required patterns
+- introduces important assumptions
+- changes subsystem interaction
 
 ------------------------------------------------
 
@@ -81210,7 +81251,7 @@ Routing is handled by the system.
 
 FILE TARGET
 
-Use target="file" when repository memory belongs to a specific source file.
+Use target="file" when repository knowledge belongs primarily to a specific source file.
 
 Provide:
 
@@ -81219,11 +81260,52 @@ Provide:
   "sourceFile": "src/example.ts"
 }
 
+FILE WIKI GUIDANCE
+
+Use target="file" when:
+
+- a file gains responsibilities
+- a file loses responsibilities
+- a file coordinates additional modules
+- a file introduces important maintenance requirements
+- a file becomes part of a critical workflow
+- future reviewers would benefit from understanding the file's evolving role
+
+GOOD:
+
+"orderController.js now validates payment status before order creation. Future modifications should preserve validation before persistence."
+
+GOOD:
+
+"github.ts now commits generated wiki files during review mode. Future workflow changes should preserve wiki initialization before context retrieval."
+
+GOOD:
+
+"repositoryMemoryWriter.ts now inserts memories into explicit sections. Future changes should preserve section-aware insertion behavior."
+
+BAD:
+
+"Added helper function."
+
+BAD:
+
+"Renamed variable."
+
+BAD:
+
+"Moved code into utility."
+
 ------------------------------------------------
 
 ARCHITECTURE TARGET
 
-Use target="architecture" when architecture-level knowledge changed.
+Use target="architecture" when:
+
+- subsystem responsibilities change
+- execution flow changes
+- component boundaries change
+- major workflow changes occur
+- architectural assumptions evolve
 
 ------------------------------------------------
 
@@ -81236,6 +81318,7 @@ Use target="database-schema" when:
 - contracts changed
 - DTOs changed
 - validation rules changed
+- persistence assumptions changed
 
 ------------------------------------------------
 
@@ -81247,12 +81330,13 @@ Use target="review-rules" when:
 - review workflow changed
 - LLM review behavior changed
 - review guidance changed
+- review prioritization changed
 
 ------------------------------------------------
 
 REPOSITORY MEMORY TARGET
 
-Use target="repository-memory" for durable repository knowledge.
+Use target="repository-memory" only for durable repository knowledge that should remain useful across many future pull requests.
 
 Allowed memory sections:
 
@@ -81274,14 +81358,41 @@ Example:
 
 ------------------------------------------------
 
+MEMORY WORTHINESS TEST
+
+Before rejecting an update ask:
+
+If a developer reviews this area six months from now, would knowing this information help them:
+
+- understand the repository
+- review future pull requests
+- maintain the system
+- safely modify the workflow
+- understand repository constraints
+
+If YES:
+
+Generate an appropriate wiki update.
+
+If NO:
+
+Reject the update.
+
+Repository-memory updates should be rare.
+
+File wiki updates should be common.
+
+------------------------------------------------
+
 CONTENT RULES
 
 contentToAppend must be:
 
 - concise
-- future-review useful
-- repository memory
+- future-maintenance focused
 - durable
+- actionable
+- repository knowledge
 
 BAD:
 
@@ -81291,6 +81402,10 @@ BAD:
 
 "Created helper method."
 
+BAD:
+
+"Fixed bug."
+
 GOOD:
 
 "Introduced runtime configuration driven wiki batching. Future reviewers should ensure batching limits remain synchronized across planner, context builder, and patch application logic."
@@ -81299,30 +81414,50 @@ GOOD:
 
 "Repository review workflow now depends on wiki classification metadata. Future changes must preserve compatibility between planner schema and review pipeline."
 
+GOOD:
+
+"Wiki initialization now commits generated wiki files before review context retrieval. Future workflow changes should preserve initialization before wiki-dependent review stages."
+
+GOOD:
+
+"Repository memory entries are deduplicated using deterministic hashes generated from reason and knowledge content."
+
+GOOD:
+
+"orderController.js coordinates order validation and persistence. Future changes should preserve validation before persistence."
+
 ------------------------------------------------
 
 UPDATE RULES
 
-Return updates ONLY when PR introduces:
+Generate updates whenever repository knowledge has evolved.
 
-- architectural change
-- workflow change
-- security change
-- API contract change
-- integration change
-- responsibility change
-- repository constraint
-- migration requirement
+Knowledge evolution includes:
+
+- architectural changes
+- workflow changes
+- review behavior changes
+- integration changes
+- security changes
+- file responsibility changes
+- important maintenance guidance
+- repository constraints
+- migration requirements
+- execution-flow changes
+
+A repository-memory update is NOT required for every wiki update.
+
+File wiki updates are expected to occur much more frequently than repository-memory updates.
 
 Do NOT generate updates for:
 
 - formatting
 - comments
-- refactors
+- trivial refactors
 - renames
 - lint fixes
 - variable renaming
-- implementation-only details
+- purely cosmetic implementation changes
 
 ------------------------------------------------
 
@@ -81349,7 +81484,7 @@ RETURN JSON ONLY
     {
       "target": "file",
       "sourceFile": "src/wiki/github.ts",
-      "reason": "Repository responsibility changed.",
+      "reason": "File responsibilities evolved.",
       "contentToAppend": "Future reviewers should verify..."
     },
     {
@@ -81367,12 +81502,12 @@ If no update required:
   "classification": {
     "category": "no-wiki-update",
     "confidence": 1,
-    "reason": "No durable repository memory change detected."
+    "reason": "No meaningful repository knowledge evolution detected."
   },
 
   "updatesRequired": false,
 
-  "summary": "No repository memory update required.",
+  "summary": "No wiki update required.",
 
   "updates": []
 }

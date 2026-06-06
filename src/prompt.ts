@@ -73,7 +73,14 @@ Do NOT create comments for:
 - personal opinions
 - speculative concerns
 
-If confidence is below 90%, do not comment.
+If confidence is below 85%, do not comment.
+
+If confidence is between 85% and 90%, only comment when the issue can cause:
+
+- runtime failures
+- security vulnerabilities
+- data corruption
+- broken workflows
 
 --------------------------------------------------
 PRIORITY ORDER
