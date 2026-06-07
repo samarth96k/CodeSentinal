@@ -331,8 +331,7 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
     return;
   }
 
-  const wikiInitResult =
-    await ensureWikiAvailable();
+  const wikiInitResult = await ensureWikiAvailable();
 
   if (
     wikiInitResult &&
@@ -341,6 +340,46 @@ async function runWikiUpdateMode(chunks: ReviewChunk[]) {
     console.log(
       `[CodeSentinal Wiki] Generated ${wikiInitResult.writtenFiles.length} wiki files.`
     );
+
+    const generatedWikiChanges =
+      (
+        await Promise.all(
+          wikiInitResult.writtenFiles.map(
+            async (path) => {
+              const content =
+                await readTextFile(path);
+
+              if (!content.trim()) {
+                return null;
+              }
+
+              return {
+                path,
+                content,
+              };
+            }
+          )
+        )
+      ).filter(
+        (
+          change
+        ): change is WikiMarkdownFileChange =>
+          change !== null
+      );
+
+    if (
+      generatedWikiChanges.length > 0
+    ) {
+      await commitWikiMarkdownChangesToPullRequestBranch(
+        {
+          pullNumber,
+          changes:
+            generatedWikiChanges,
+          commitMessage:
+            "docs: initialize CodeSentinal wiki",
+        }
+      );
+    }
   }
 
   const chunksWithWikiContext =

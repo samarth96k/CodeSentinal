@@ -81,8 +81,8 @@ export async function buildWikiMarkdownFileChanges(
     return [];
   }
 
-  const changes: WikiMarkdownFileChange[] =
-    [];
+  const workingFiles =
+    new Map<string, string>();
 
   for (const update of plan.updates) {
     const routedUpdate =
@@ -96,21 +96,28 @@ export async function buildWikiMarkdownFileChanges(
       continue;
     }
 
-    let existingContent = "";
-
-    try {
-      existingContent =
-        await readTextFile(
-          routedUpdate.wikiFilePath
-        );
-    } catch (error) {
-      console.log(
-        `[CodeSentinal Wiki] Failed to read ${routedUpdate.wikiFilePath}`
+    let existingContent =
+      workingFiles.get(
+        routedUpdate.wikiFilePath
       );
 
-      console.log(error);
+    if (
+      existingContent === undefined
+    ) {
+      try {
+        existingContent =
+          await readTextFile(
+            routedUpdate.wikiFilePath
+          );
+      } catch (error) {
+        console.log(
+          `[CodeSentinal Wiki] Failed to read ${routedUpdate.wikiFilePath}`
+        );
 
-      continue;
+        console.log(error);
+
+        continue;
+      }
     }
 
     const memoryId =
@@ -133,53 +140,69 @@ export async function buildWikiMarkdownFileChanges(
 
       continue;
     }
-let finalContent: string;
 
-if (
-  update.target ===
-    "repository-memory" &&
-  update.memorySection
-) {
-  finalContent =
-    insertIntoRepositoryMemory(
-      existingContent,
-      update.memorySection,
-      update.reason,
-      update.contentToAppend
-    );
+    let finalContent: string;
 
-  finalContent =
-    trimRepositoryMemorySection(
-      finalContent,
+    if (
+      update.target ===
+        "repository-memory" &&
       update.memorySection
-    );
-} else {
-  const appendBlock =
-    buildAppendBlock(
-      update.reason,
-      update.contentToAppend
+    ) {
+      finalContent =
+        insertIntoRepositoryMemory(
+          existingContent,
+          update.memorySection,
+          update.reason,
+          update.contentToAppend
+        );
+
+      finalContent =
+        trimRepositoryMemorySection(
+          finalContent,
+          update.memorySection
+        );
+    } else {
+      const appendBlock =
+        buildAppendBlock(
+          update.reason,
+          update.contentToAppend
+        );
+
+      finalContent =
+        existingContent.trimEnd() +
+        appendBlock;
+    }
+
+    debugJson(
+      "WIKI_FILE_CHANGE",
+      {
+        path:
+          routedUpdate.wikiFilePath,
+
+        update,
+      }
     );
 
-  finalContent =
-    existingContent.trimEnd() +
-    appendBlock;
-}
-debugJson(
-  "WIKI_FILE_CHANGE",
-  {
-    path:
+    workingFiles.set(
       routedUpdate.wikiFilePath,
-
-    update,
+      finalContent
+    );
   }
-);
-    changes.push({
-      path:
-        routedUpdate.wikiFilePath,
 
-      content: finalContent,
-    });
-  }
+  const changes =
+    Array.from(
+      workingFiles.entries()
+    ).map(
+      ([path, content]) => ({
+        path,
+        content,
+      })
+    );
+
+  debugJson(
+    "WIKI_MARKDOWN_CHANGES",
+    changes
+  );
 
   return changes;
 }

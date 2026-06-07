@@ -12,6 +12,7 @@ import { analyzeWikiImpact } from "./wikiImpactAnalyzer.js";
 import { getRelevantMemories } from "./repositoryMemoryRetriever.js";
 import { isSafeWikiMarkdownPath } from "./wikiPathMapper.js";
 import { debugJson } from "./utils/debugLogger.js";
+import { sourcePathToWikiPath } from "./utils/wikiWriter.js";
 
 async function loadWikiDocument(
   path: string,
@@ -132,13 +133,30 @@ export async function getWikiUpdateContextForChunks(
     }
   }
 
-  const memoryMap =
-    new Map<
-      string,
-      ReturnType<
-        typeof memoryToDocument
-      >
-    >();
+for (const chunk of chunks) {
+  const fileWikiPath =
+    sourcePathToWikiPath(
+      chunk.filename
+    );
+
+  const fileDoc =
+    await loadWikiDocument(
+      fileWikiPath,
+      `Current file wiki for ${chunk.filename}`
+    );
+
+  if (fileDoc) {
+    documents.push(fileDoc);
+  }
+}
+
+const memoryMap =
+  new Map<
+    string,
+    ReturnType<
+      typeof memoryToDocument
+    >
+  >();
 
   for (const chunk of chunks) {
     const memories =

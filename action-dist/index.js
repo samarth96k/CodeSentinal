@@ -57152,6 +57152,23 @@ async function runWikiUpdateMode(chunks) {
     if (wikiInitResult &&
         wikiInitResult.writtenFiles.length > 0) {
         console.log(`[CodeSentinal Wiki] Generated ${wikiInitResult.writtenFiles.length} wiki files.`);
+        const generatedWikiChanges = (await Promise.all(wikiInitResult.writtenFiles.map(async (path) => {
+            const content = await (0,_wiki_utils_fileHelpers_js__WEBPACK_IMPORTED_MODULE_5__/* .readTextFile */ .Gu)(path);
+            if (!content.trim()) {
+                return null;
+            }
+            return {
+                path,
+                content,
+            };
+        }))).filter((change) => change !== null);
+        if (generatedWikiChanges.length > 0) {
+            await (0,_github_js__WEBPACK_IMPORTED_MODULE_4__/* .commitWikiMarkdownChangesToPullRequestBranch */ .x4)({
+                pullNumber,
+                changes: generatedWikiChanges,
+                commitMessage: "docs: initialize CodeSentinal wiki",
+            });
+        }
     }
     const chunksWithWikiContext = await (0,_wiki_getWikiUpdateContextForChunks_js__WEBPACK_IMPORTED_MODULE_10__/* .getWikiUpdateContextForChunks */ .i)(chunks);
     const wikiUpdatePlan = await (0,_wiki_wikiUpdatePlanner_js__WEBPACK_IMPORTED_MODULE_11__/* .planWikiMarkdownUpdates */ .v)(chunksWithWikiContext);
@@ -80386,7 +80403,10 @@ var repositoryMemoryRetriever = __nccwpck_require__(5090);
 var wikiPathMapper = __nccwpck_require__(2519);
 // EXTERNAL MODULE: ./dist/wiki/utils/debugLogger.js
 var debugLogger = __nccwpck_require__(180);
+// EXTERNAL MODULE: ./dist/wiki/utils/wikiWriter.js
+var wikiWriter = __nccwpck_require__(2736);
 ;// CONCATENATED MODULE: ./dist/wiki/getWikiUpdateContextForChunks.js
+
 
 
 
@@ -80455,6 +80475,13 @@ async function getWikiUpdateContextForChunks(chunks) {
         const document = await loadWikiDocument(impactedDoc.path, impactedDoc.reason);
         if (document) {
             documents.push(document);
+        }
+    }
+    for (const chunk of chunks) {
+        const fileWikiPath = (0,wikiWriter/* sourcePathToWikiPath */.xu)(chunk.filename);
+        const fileDoc = await loadWikiDocument(fileWikiPath, `Current file wiki for ${chunk.filename}`);
+        if (fileDoc) {
+            documents.push(fileDoc);
         }
     }
     const memoryMap = new Map();
@@ -80990,22 +81017,24 @@ async function buildWikiMarkdownFileChanges(plan) {
         plan.updates.length === 0) {
         return [];
     }
-    const changes = [];
+    const workingFiles = new Map();
     for (const update of plan.updates) {
         const routedUpdate = routeWikiUpdate(update);
         if (!routedUpdate) {
             console.log("[CodeSentinal Wiki] Failed to route update.");
             continue;
         }
-        let existingContent = "";
-        try {
-            existingContent =
-                await (0,fileHelpers/* readTextFile */.Gu)(routedUpdate.wikiFilePath);
-        }
-        catch (error) {
-            console.log(`[CodeSentinal Wiki] Failed to read ${routedUpdate.wikiFilePath}`);
-            console.log(error);
-            continue;
+        let existingContent = workingFiles.get(routedUpdate.wikiFilePath);
+        if (existingContent === undefined) {
+            try {
+                existingContent =
+                    await (0,fileHelpers/* readTextFile */.Gu)(routedUpdate.wikiFilePath);
+            }
+            catch (error) {
+                console.log(`[CodeSentinal Wiki] Failed to read ${routedUpdate.wikiFilePath}`);
+                console.log(error);
+                continue;
+            }
         }
         const memoryId = wikiPatchApplier_buildMemoryHash(update.reason, update.contentToAppend);
         const existingIds = extractExistingMemoryIds(existingContent);
@@ -81032,11 +81061,13 @@ async function buildWikiMarkdownFileChanges(plan) {
             path: routedUpdate.wikiFilePath,
             update,
         });
-        changes.push({
-            path: routedUpdate.wikiFilePath,
-            content: finalContent,
-        });
+        workingFiles.set(routedUpdate.wikiFilePath, finalContent);
     }
+    const changes = Array.from(workingFiles.entries()).map(([path, content]) => ({
+        path,
+        content,
+    }));
+    (0,debugLogger/* debugJson */.q)("WIKI_MARKDOWN_CHANGES", changes);
     return changes;
 }
 
