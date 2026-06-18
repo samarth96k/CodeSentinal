@@ -10,7 +10,7 @@ Created At: 2026-06-04T00:00:00.000Z
 
 **Reason**
 
-GitHub operations must be resilient against transient failures and rate limiting.
+executeGitHubWithRetry is the standard GitHub reliability mechanism used throughout the repository.
 
 **Knowledge**
 
@@ -43,6 +43,21 @@ Repository memory is part of review intelligence.
 **Knowledge**
 
 Repository memories retrieved by getRelevantMemories are converted into WikiContextDocument objects and injected into review prompts through getWikiContextForChunks.
+
+---
+
+
+### Memory ID: 4f355046e7e5
+
+Created At: 2026-06-04T17:36:43.536Z
+
+**Reason**
+
+Enforcement of repository memory integrity.
+
+**Knowledge**
+
+Repository memory writers now enforce strict presence checks for headers and existence validation. Any attempt to update non-existent memory sections will trigger a runtime error to prevent silent failures.
 
 ---
 

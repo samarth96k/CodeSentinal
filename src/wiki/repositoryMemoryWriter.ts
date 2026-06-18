@@ -53,8 +53,16 @@ export function memoryEntryExists(
   const memoryId =
     buildMemoryHash(reason, content);
 
+  if (
+    markdown.includes(
+      `Memory ID: ${memoryId}`
+    )
+  ) {
+    return true;
+  }
+
   return markdown.includes(
-    `Memory ID: ${memoryId}`
+    content.trim()
   );
 }
 
@@ -65,7 +73,16 @@ function findSectionPosition(
   const header =
     `## ${section}`;
 
-  return markdown.indexOf(header);
+  const position =
+    markdown.indexOf(header);
+
+  if (position === -1) {
+    throw new Error(
+      `Repository memory section not found: ${section}`
+    );
+  }
+
+  return position;
 }
 
 export function insertIntoRepositoryMemory(
@@ -89,10 +106,6 @@ export function insertIntoRepositoryMemory(
       markdown,
       section
     );
-
-  if (position === -1) {
-    return markdown;
-  }
 
   const entry =
     buildMemoryEntry(

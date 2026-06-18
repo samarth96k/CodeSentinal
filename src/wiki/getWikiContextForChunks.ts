@@ -124,6 +124,12 @@ ${doc.content}
   );
 }
 
+function countWikiDocuments(
+  docs: WikiContextDocument[]
+): number {
+  return docs.length;
+}
+
 async function loadGlobalWikiDocuments(): Promise<
   WikiContextDocument[]
 > {

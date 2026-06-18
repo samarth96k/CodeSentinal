@@ -12,6 +12,17 @@ export const repo = github.context.repo.repo;
 
 let octokitClient: Octokit | null = null;
 
+export function isRetryableGitHubError(
+  status?: number
+): boolean {
+  return (
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503
+  );
+}
+
 function assertValidPullNumber(pullNumber: number): void {
   if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
     throw new Error(`Invalid pull request number: ${pullNumber}`);

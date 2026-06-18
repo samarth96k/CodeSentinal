@@ -13,6 +13,13 @@ import {
   memoryEntryExists,
 } from "./repositoryMemoryWriter.js";
 
+function hasRepositoryMemoryUpdate(
+  target: string
+): boolean {
+  return target ===
+    "repository-memory";
+}
+
 function buildAppendBlock(
   reason: string,
   content: string
