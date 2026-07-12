@@ -1,0 +1,53 @@
+name: CodeSentinal Contributor Manual Wiki Update Before PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  contributor-wiki-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get PR branch
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const prNumber = Number(core.getInput("pr_number"));
+            const { owner, repo } = context.repo;
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber,
+            });
+
+            core.setOutput("head_ref", pr.head.ref);
+            core.setOutput("head_repo", pr.head.repo.full_name);
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pr.outputs.head_repo }}
+          ref: ${{ steps.pr.outputs.head_ref }}
+          token: ${{ github.token }}
+          persist-credentials: true
+
+      - name: Run CodeSentinal Wiki Update
+        uses: samarth96k/CodeSentinal@package-github-action-phase2
+        with:
+          mode: wiki-update
+          pr_number: ${{ github.event.inputs.pr_number }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          github_token: ${{ github.token }}
+          repo_root: "."

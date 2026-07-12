@@ -1,0 +1,23 @@
+name: CodeSentinal Fork PR Review
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  codesentinal-review:
+    if: github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run CodeSentinal Review
+        uses: samarth96k/CodeSentinal@v1
+        with:
+          mode: review
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          github_token: ${{ github.token }}
+          repo_root: "."

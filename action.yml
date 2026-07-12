@@ -1,0 +1,39 @@
+name: "CodeSentinal"
+description: "AI-powered GitHub PR reviewer with LLM Wiki repository context"
+author: "Samarth Khandelwal"
+
+inputs:
+  mode:
+    description: "Execution mode: review, wiki-update, or all"
+    required: false
+    default: "review"
+
+  gemini_api_key:
+    description: "Gemini API key"
+    required: true
+    
+  github_token:
+    description: "GitHub token used to read PRs, post comments, and commit wiki updates"
+    required: true
+
+  max_wiki_files:
+    description: "Maximum wiki files to generate when runtime wiki is missing"
+    required: false
+    default: "40"
+    
+  repo_root:
+    description: "Repository root path to scan and write .codesentinal/wiki"
+    required: false
+    default: "."
+  
+  pr_number:
+    description: "Pull request number for manual workflow_dispatch runs"
+    required: false
+
+runs:
+  using: "node20"
+  main: "action-dist/index.js"
+
+branding:
+  icon: "shield"
+  color: "blue"
